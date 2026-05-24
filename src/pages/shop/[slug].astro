@@ -229,8 +229,9 @@ if (product.image && !images.includes(product.image))
                   <button
                     data-option-type={type}
                     data-option-id={opt.id}
+                    data-option-name={opt.name}
                     data-price-adj={opt.priceAdj}
-                    class={`option-btn px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${opt.isDefault ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700 hover:border-blue-400"}`}
+                    class={`option-btn px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${opt.isDefault ? "border-blue-600 bg-blue-50 text-blue-700 is-active" : "border-gray-200 text-gray-700 hover:border-blue-400"}`}
                   >
                     {opt.name}
                     {Number(opt.priceAdj) !== 0 && (
@@ -337,7 +338,18 @@ if (product.image && !images.includes(product.image))
   const container = document.getElementById("product-container");
   if (container) {
     const product = JSON.parse(container.dataset.product || "{}");
-    let selectedOptions: Record<string, { id: string; priceAdj: number }> = {};
+    let selectedOptions: Record<string, { id: string; name: string; priceAdj: number }> = {};
+    
+    // Initialize default selected options
+    document.querySelectorAll(".option-btn.is-active").forEach((btn) => {
+      const el = btn as HTMLElement;
+      selectedOptions[el.dataset.optionType!] = {
+        id: el.dataset.optionId!,
+        name: el.dataset.optionName!,
+        priceAdj: parseFloat(el.dataset.priceAdj || "0")
+      };
+    });
+
     let startingSellingPrice =
       product.pricingType === "fixed"
         ? product.price
@@ -392,16 +404,18 @@ if (product.image && !images.includes(product.image))
         const type = (btn as HTMLElement).dataset.optionType!;
         document
           .querySelectorAll(`[data-option-type="${type}"]`)
-          .forEach((b) =>
+          .forEach((b) => {
             b.classList.remove(
               "border-blue-600",
               "bg-blue-50",
               "text-blue-700",
-            ),
-          );
-        btn.classList.add("border-blue-600", "bg-blue-50", "text-blue-700");
+              "is-active"
+            );
+          });
+        btn.classList.add("border-blue-600", "bg-blue-50", "text-blue-700", "is-active");
         selectedOptions[type] = {
           id: (btn as HTMLElement).dataset.optionId!,
+          name: (btn as HTMLElement).dataset.optionName!,
           priceAdj: parseFloat((btn as HTMLElement).dataset.priceAdj || "0"),
         };
         calcPrice();

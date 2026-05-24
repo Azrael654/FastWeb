@@ -8,7 +8,7 @@ export interface CartItem {
   price: number;
   qty: number;
   dimension: number;
-  options: Record<string, { id: string; priceAdj: number }>;
+  options: Record<string, { id: string; name: string; priceAdj: number }>;
   designUrl?: string;
 }
 

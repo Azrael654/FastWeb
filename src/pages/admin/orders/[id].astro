@@ -35,6 +35,21 @@ const statusColor: Record<string, string> = {
               <div class="flex-1">
                 <p class="font-semibold text-gray-900 text-sm">{item.name}</p>
                 <p class="text-xs text-gray-500 mt-0.5">Qty: {item.qty} {item.dimension ? `× ${item.dimension} ${item.pricingUnit || ''}` : ''}</p>
+                {item.options && Object.keys(item.options).length > 0 && (
+                  <div class="mt-1.5 flex flex-wrap gap-1.5">
+                    {Object.entries(item.options).map(([type, opt]: any) => (
+                      <span class="text-xs bg-white text-gray-600 px-2 py-0.5 rounded-md border border-gray-200">
+                        <span class="capitalize font-medium">{type}</span>: {opt.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {item.designUrl && (
+                  <a href={item.designUrl} target="_blank" class="inline-flex items-center gap-1 text-xs text-blue-600 font-medium hover:underline mt-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Download File Desain
+                  </a>
+                )}
               </div>
               <p class="font-bold text-gray-900 text-sm">Rp {Number(item.price).toLocaleString('id')}</p>
             </div>
