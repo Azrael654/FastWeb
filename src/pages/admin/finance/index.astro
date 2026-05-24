@@ -42,12 +42,27 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
       </div>
       <div class="space-y-3">
         {accounts.map(acc => (
-          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-            <div>
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl group relative">
+            <div class="flex-1">
               <p class="font-semibold text-sm text-gray-900">{acc.name}</p>
               <span class="badge-blue text-xs">{acc.type}</span>
             </div>
-            <p class={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Rp {Number(acc.balance).toLocaleString('id')}</p>
+            <div class="text-right">
+              <p class={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Rp {Number(acc.balance).toLocaleString('id')}</p>
+              <div class="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  class="edit-account-btn text-xs text-blue-600 hover:underline" 
+                  data-id={acc.id} 
+                  data-name={acc.name} 
+                  data-type={acc.type} 
+                  data-balance={Number(acc.balance)}
+                >Edit</button>
+                <button 
+                  class="delete-account-btn text-xs text-red-600 hover:underline" 
+                  data-id={acc.id}
+                >Hapus</button>
+              </div>
+            </div>
           </div>
         ))}
         {accounts.length === 0 && <p class="text-sm text-gray-400 text-center py-4">Belum ada rekening</p>}
@@ -121,16 +136,17 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
   <!-- Add Account Modal -->
   <div id="account-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-      <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Rekening</h3>
+      <h3 id="account-modal-title" class="font-bold text-gray-900 text-lg mb-4">Tambah Rekening</h3>
       <form id="account-form" class="space-y-4">
-        <div><label class="label">Nama Rekening</label><input name="name" required class="input-field" placeholder="BCA, Kas Operasional..." /></div>
+        <input type="hidden" name="id" id="account-id" />
+        <div><label class="label">Nama Rekening</label><input name="name" id="account-name" required class="input-field" placeholder="BCA, Kas Operasional..." /></div>
         <div><label class="label">Tipe</label>
-          <select name="type" class="input-field">
+          <select name="type" id="account-type" class="input-field">
             <option value="Cash">Cash</option>
             <option value="Bank">Bank</option>
           </select>
         </div>
-        <div><label class="label">Saldo Awal (Rp)</label><input name="balance" type="number" value="0" required class="input-field" /></div>
+        <div><label class="label">Saldo Awal (Rp)</label><input name="balance" id="account-balance" type="number" value="0" required class="input-field" /></div>
         <div class="flex gap-3"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-account-modal" class="btn-ghost flex-1">Batal</button></div>
       </form>
     </div>
@@ -138,16 +154,56 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
 </AdminLayout>
 
 <script>
-  document.getElementById('add-account-btn')?.addEventListener('click', () => document.getElementById('account-modal')?.classList.remove('hidden'));
-  document.getElementById('close-account-modal')?.addEventListener('click', () => document.getElementById('account-modal')?.classList.add('hidden'));
+  // Account Form Logic
+  const accountModal = document.getElementById('account-modal')!;
+  const accountForm = document.getElementById('account-form') as HTMLFormElement;
+  const idInput = document.getElementById('account-id') as HTMLInputElement;
+  const title = document.getElementById('account-modal-title')!;
 
-  document.getElementById('account-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
-    const res = await fetch('/api/finance/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) location.reload(); else alert('Gagal menambah rekening');
+  document.getElementById('add-account-btn')?.addEventListener('click', () => {
+    accountForm.reset();
+    idInput.value = '';
+    title.textContent = 'Tambah Rekening';
+    accountModal.classList.remove('hidden');
   });
 
+  document.getElementById('close-account-modal')?.addEventListener('click', () => {
+    accountModal.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.edit-account-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      idInput.value = el.dataset.id!;
+      (document.getElementById('account-name') as HTMLInputElement).value = el.dataset.name!;
+      (document.getElementById('account-type') as HTMLSelectElement).value = el.dataset.type!;
+      (document.getElementById('account-balance') as HTMLInputElement).value = el.dataset.balance!;
+      title.textContent = 'Edit Rekening';
+      accountModal.classList.remove('hidden');
+    });
+  });
+
+  document.querySelectorAll('.delete-account-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Yakin ingin menghapus rekening ini? Semua transaksi terkait juga dapat terpengaruh.')) return;
+      const el = e.currentTarget as HTMLElement;
+      const res = await fetch(`/api/finance/accounts/${el.dataset.id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus rekening');
+    });
+  });
+
+  accountForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(accountForm));
+    const isEdit = !!data.id;
+    const url = isEdit ? `/api/finance/accounts/${data.id}` : '/api/finance/accounts';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menyimpan rekening');
+  });
+
+  // Transaction Logic
   document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('tx-msg')!;
