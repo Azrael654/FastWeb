@@ -7,10 +7,12 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
-  const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
-  const shippingFee = 15000; // Fixed flat rate for demo
+  const [shippingMethod, setShippingMethod] = useState<'dikirim' | 'ambil'>('dikirim');
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState('');
+  
+  const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
+  const shippingFee = shippingMethod === 'dikirim' ? 15000 : 0; // Flat rate 15k for courier, 0 for pickup
   const total = subtotal + shippingFee - discount;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -21,14 +23,14 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
     const fd = new FormData(e.currentTarget);
     const data = Object.fromEntries(fd);
     
-    const shippingAddress = {
+    const shippingAddress = shippingMethod === 'dikirim' ? {
       name: data.customerName,
       phone: data.customerPhone,
       address: data.address,
       city: data.city,
       province: data.province,
       postalCode: data.postalCode,
-    };
+    } : null;
 
     const payload = {
       items,
@@ -40,7 +42,7 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
       discount,
       couponCode: couponCode || undefined,
       total,
-      shippingMethod: 'Reguler',
+      shippingMethod: shippingMethod === 'dikirim' ? 'Dikirim Kurir' : 'Ambil di Toko',
       paymentMethod: data.paymentMethod,
       shippingAddress,
     };
@@ -103,18 +105,41 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
           </div>
         </div>
 
-        {/* Shipping Info */}
+        {/* Shipping Method */}
         <div className="card p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-5">Alamat Pengiriman</h2>
-          <div className="space-y-4">
-            <div><label className="label">Alamat Lengkap *</label><textarea name="address" required className="input-field" rows={3}></textarea></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="label">Kota/Kabupaten *</label><input name="city" required className="input-field" /></div>
-              <div><label className="label">Provinsi *</label><input name="province" required className="input-field" /></div>
-            </div>
-            <div><label className="label">Kode Pos *</label><input name="postalCode" required className="input-field w-1/2" /></div>
+          <h2 className="text-xl font-bold text-gray-900 mb-5">Metode Pengiriman</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${shippingMethod === 'dikirim' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}>
+              <input type="radio" name="shippingMethodRadio" value="dikirim" checked={shippingMethod === 'dikirim'} onChange={(e) => setShippingMethod(e.target.value as any)} className="mt-1 w-4 h-4 text-blue-600" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">Dikirim Kurir</p>
+                <p className="text-xs text-gray-500 mt-1">Pesanan akan dikirim ke alamat Anda (Flat Rp 15.000)</p>
+              </div>
+            </label>
+            <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${shippingMethod === 'ambil' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}>
+              <input type="radio" name="shippingMethodRadio" value="ambil" checked={shippingMethod === 'ambil'} onChange={(e) => setShippingMethod(e.target.value as any)} className="mt-1 w-4 h-4 text-blue-600" />
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">Ambil di Toko</p>
+                <p className="text-xs text-gray-500 mt-1">Ambil sendiri pesanan Anda di lokasi toko kami (Gratis)</p>
+              </div>
+            </label>
           </div>
         </div>
+
+        {/* Shipping Info */}
+        {shippingMethod === 'dikirim' && (
+          <div className="card p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-5">Alamat Pengiriman</h2>
+            <div className="space-y-4">
+              <div><label className="label">Alamat Lengkap *</label><textarea name="address" required className="input-field" rows={3}></textarea></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="label">Kota/Kabupaten *</label><input name="city" required className="input-field" /></div>
+                <div><label className="label">Provinsi *</label><input name="province" required className="input-field" /></div>
+              </div>
+              <div><label className="label">Kode Pos *</label><input name="postalCode" required className="input-field w-1/2" /></div>
+            </div>
+          </div>
+        )}
 
         {/* Payment Info */}
         <div className="card p-6">
@@ -172,7 +197,10 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
 
           <div className="border-t border-gray-100 pt-4 space-y-3 text-sm">
             <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>Rp {subtotal.toLocaleString('id')}</span></div>
-            <div className="flex justify-between text-gray-600"><span>Pengiriman (Flat Rate)</span><span>Rp {shippingFee.toLocaleString('id')}</span></div>
+            <div className="flex justify-between text-gray-600">
+              <span>Pengiriman ({shippingMethod === 'dikirim' ? 'Kurir' : 'Ambil di Toko'})</span>
+              <span>{shippingFee > 0 ? `Rp ${shippingFee.toLocaleString('id')}` : 'Gratis'}</span>
+            </div>
             {discount > 0 && <div className="flex justify-between text-green-600"><span>Diskon ({couponCode})</span><span>-Rp {discount.toLocaleString('id')}</span></div>}
             <div className="flex justify-between font-bold text-xl text-gray-900 pt-3 border-t border-gray-100">
               <span>Total Tagihan</span>
