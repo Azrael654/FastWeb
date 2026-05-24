@@ -79,11 +79,19 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
           <select name="type" id="tx-type" class="input-field text-sm">
             <option value="income">Pemasukan</option>
             <option value="expense">Pengeluaran</option>
+            <option value="transfer">Transfer Antar Rekening</option>
           </select>
         </div>
         <div>
-          <label class="label">Rekening</label>
-          <select name="accountId" class="input-field text-sm">
+          <label class="label" id="tx-account-label">Rekening</label>
+          <select name="accountId" id="tx-account" class="input-field text-sm">
+            {accounts.map(a => <option value={a.id}>{a.name} ({a.type})</option>)}
+          </select>
+        </div>
+        <div id="tx-target-account-wrap" class="hidden">
+          <label class="label">Ke Rekening Tujuan</label>
+          <select name="targetAccountId" id="tx-target-account" class="input-field text-sm">
+            <option value="">Pilih Rekening Tujuan...</option>
             {accounts.map(a => <option value={a.id}>{a.name} ({a.type})</option>)}
           </select>
         </div>
@@ -146,7 +154,7 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
             <option value="Bank">Bank</option>
           </select>
         </div>
-        <div><label class="label">Saldo Awal (Rp)</label><input name="balance" id="account-balance" type="number" value="0" required class="input-field" /></div>
+        <div id="account-balance-wrap"><label class="label">Saldo Awal (Rp)</label><input name="balance" id="account-balance" type="number" value="0" required class="input-field" /></div>
         <div class="flex gap-3"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-account-modal" class="btn-ghost flex-1">Batal</button></div>
       </form>
     </div>
@@ -164,6 +172,8 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
     accountForm.reset();
     idInput.value = '';
     title.textContent = 'Tambah Rekening';
+    document.getElementById('account-balance-wrap')?.classList.remove('hidden');
+    (document.getElementById('account-balance') as HTMLInputElement).required = true;
     accountModal.classList.remove('hidden');
   });
 
@@ -177,7 +187,11 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
       idInput.value = el.dataset.id!;
       (document.getElementById('account-name') as HTMLInputElement).value = el.dataset.name!;
       (document.getElementById('account-type') as HTMLSelectElement).value = el.dataset.type!;
-      (document.getElementById('account-balance') as HTMLInputElement).value = el.dataset.balance!;
+      
+      // Hide balance field on edit
+      document.getElementById('account-balance-wrap')?.classList.add('hidden');
+      (document.getElementById('account-balance') as HTMLInputElement).required = false;
+
       title.textContent = 'Edit Rekening';
       accountModal.classList.remove('hidden');
     });
@@ -204,10 +218,37 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
   });
 
   // Transaction Logic
+  const txType = document.getElementById('tx-type') as HTMLSelectElement;
+  const txAccountLabel = document.getElementById('tx-account-label')!;
+  const txTargetWrap = document.getElementById('tx-target-account-wrap')!;
+  const txTargetInput = document.getElementById('tx-target-account') as HTMLSelectElement;
+
+  txType?.addEventListener('change', () => {
+    const isTransfer = txType.value === 'transfer';
+    if (isTransfer) {
+      txAccountLabel.textContent = 'Dari Rekening Sumber';
+      txTargetWrap.classList.remove('hidden');
+      txTargetInput.required = true;
+    } else {
+      txAccountLabel.textContent = 'Rekening';
+      txTargetWrap.classList.add('hidden');
+      txTargetInput.required = false;
+      txTargetInput.value = '';
+    }
+  });
+
   document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('tx-msg')!;
     const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
+    
+    if (data.type === 'transfer' && data.accountId === data.targetAccountId) {
+      msg.textContent = 'Rekening sumber dan tujuan tidak boleh sama.';
+      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
+      msg.classList.remove('hidden');
+      return;
+    }
+
     const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (res.ok) {
       msg.textContent = 'Transaksi berhasil disimpan!';

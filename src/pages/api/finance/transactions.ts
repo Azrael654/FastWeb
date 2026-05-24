@@ -21,12 +21,43 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   const body = await request.json();
-  const { accountId, type, amount, ...rest } = body;
+  const { accountId, targetAccountId, type, amount, ...rest } = body;
+  
   const tx = await prisma.$transaction(async (tx) => {
-    const trx = await tx.transaction.create({ data: { accountId, type, amount, ...rest } });
-    const delta = type === 'income' ? Number(amount) : -Number(amount);
-    await tx.account.update({ where: { id: accountId }, data: { balance: { increment: delta } } });
-    return trx;
+    if (type === 'transfer') {
+      // 1. Create expense on source account
+      const sourceTx = await tx.transaction.create({ 
+        data: { 
+          accountId, 
+          type: 'expense', 
+          amount, 
+          category: rest.category || 'Transfer Out',
+          description: rest.description ? `${rest.description} (Ke Rekening Tujuan)` : 'Transfer Keluar'
+        } 
+      });
+      await tx.account.update({ where: { id: accountId }, data: { balance: { decrement: Number(amount) } } });
+      
+      // 2. Create income on target account
+      await tx.transaction.create({ 
+        data: { 
+          accountId: targetAccountId, 
+          type: 'income', 
+          amount, 
+          category: rest.category || 'Transfer In',
+          description: rest.description ? `${rest.description} (Dari Rekening Sumber)` : 'Transfer Masuk'
+        } 
+      });
+      await tx.account.update({ where: { id: targetAccountId }, data: { balance: { increment: Number(amount) } } });
+      
+      return sourceTx;
+    } else {
+      // Regular income/expense
+      const trx = await tx.transaction.create({ data: { accountId, type, amount, ...rest } });
+      const delta = type === 'income' ? Number(amount) : -Number(amount);
+      await tx.account.update({ where: { id: accountId }, data: { balance: { increment: delta } } });
+      return trx;
+    }
   });
+  
   return new Response(JSON.stringify(tx), { status: 201 });
 };

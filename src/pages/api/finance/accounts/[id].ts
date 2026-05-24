@@ -14,7 +14,6 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
       data: {
         name: body.name,
         type: body.type,
-        balance: body.balance,
       },
     });
     return new Response(JSON.stringify(account), { status: 200 });
