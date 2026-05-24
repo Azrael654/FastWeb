@@ -1,0 +1,116 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import prisma from '../../lib/prisma';
+
+const search = Astro.url.searchParams.get('search') || '';
+const categoryId = Astro.url.searchParams.get('category') || '';
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const limit = 12;
+
+const where: any = {};
+if (search) where.name = { contains: search, mode: 'insensitive' };
+if (categoryId) where.categoryId = categoryId;
+
+const [products, totalCount, categories] = await Promise.all([
+  prisma.product.findMany({ where, include: { category: true }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+  prisma.product.count({ where }),
+  prisma.category.findMany({ orderBy: { name: 'asc' } }),
+]);
+
+const totalPages = Math.ceil(totalCount / limit);
+---
+<MainLayout title="Produk – Fast Print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="section-title">Semua Produk</h1>
+      <p class="section-subtitle">Temukan solusi cetak terbaik untuk kebutuhan Anda</p>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-8">
+      <!-- Sidebar Filters -->
+      <aside class="lg:w-64 shrink-0">
+        <div class="card p-5 sticky top-20">
+          <form method="GET" action="/shop">
+            <div class="mb-5">
+              <label class="label">Cari Produk</label>
+              <input name="search" type="text" value={search} class="input-field" placeholder="Nama produk..." />
+            </div>
+            <div class="mb-5">
+              <label class="label">Kategori</label>
+              <div class="space-y-1.5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="category" value="" checked={!categoryId} class="text-blue-600" />
+                  <span class="text-sm text-gray-700">Semua Kategori</span>
+                </label>
+                {categories.map(cat => (
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="category" value={cat.id} checked={categoryId === cat.id} class="text-blue-600" />
+                    <span class="text-sm text-gray-700">{cat.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button type="submit" class="btn-primary w-full">Filter</button>
+            {(search || categoryId) && <a href="/shop" class="btn-ghost w-full mt-2 text-sm">Reset Filter</a>}
+          </form>
+        </div>
+      </aside>
+
+      <!-- Products Grid -->
+      <div class="flex-1">
+        <div class="flex items-center justify-between mb-5">
+          <p class="text-sm text-gray-500">{totalCount} produk ditemukan</p>
+        </div>
+
+        {products.length === 0 ? (
+          <div class="text-center py-20 card">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+            <p class="text-gray-500 font-medium">Tidak ada produk ditemukan</p>
+          </div>
+        ) : (
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {products.map(product => (
+              <a href={`/shop/${product.slug}`} class="card-hover group">
+                <div class="aspect-video bg-gray-100 overflow-hidden">
+                  {product.image ? (
+                    <img src={product.image} alt={product.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <div class="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                      <svg class="w-12 h-12 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg>
+                    </div>
+                  )}
+                </div>
+                <div class="p-4">
+                  {product.category && <span class="badge-blue text-xs">{product.category.name}</span>}
+                  <h3 class="font-semibold text-gray-900 mt-2 group-hover:text-blue-600 transition-colors line-clamp-2">{product.name}</h3>
+                  {product.description && <p class="text-gray-500 text-sm mt-1 line-clamp-2">{product.description}</p>}
+                  <div class="flex items-center justify-between mt-3">
+                    <p class="text-blue-600 font-bold">
+                      {product.pricingType === 'fixed' ? `Rp ${Number(product.price).toLocaleString('id')}` : `Mulai Rp ${Number(product.basePrice).toLocaleString('id')}`}
+                    </p>
+                    <span class="text-xs text-blue-600 font-medium group-hover:underline">Detail →</span>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        <!-- Pagination -->
+        {totalPages > 1 && (
+          <div class="flex justify-center gap-2 mt-10">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
+              const params = new URLSearchParams();
+              if (search) params.set('search', search);
+              if (categoryId) params.set('category', categoryId);
+              params.set('page', String(p));
+              return (
+                <a href={`/shop?${params}`} class={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition-all ${p === page ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:border-blue-400'}`}>{p}</a>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</MainLayout>

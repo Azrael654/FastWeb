@@ -1,0 +1,123 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const { id } = Astro.params;
+const order = await prisma.order.findUnique({ where: { id } });
+if (!order) return Astro.redirect('/admin/orders');
+
+const items = Array.isArray(order.items) ? order.items : [];
+const addr = order.shippingAddress as any;
+
+const statusOptions = ['pending','processing','shipped','delivered','cancelled'];
+const statusColor: Record<string, string> = {
+  pending: 'badge-yellow', processing: 'badge-blue',
+  shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
+};
+---
+<AdminLayout title={`Pesanan #${id?.slice(-8)}`} currentPage="orders">
+  <div class="mb-5">
+    <a href="/admin/orders" class="text-sm text-blue-600 hover:underline flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Kembali ke Pesanan
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div class="xl:col-span-2 space-y-5">
+      <!-- Items -->
+      <div class="card p-5">
+        <h2 class="font-bold text-gray-900 mb-4">Item Pesanan</h2>
+        <div class="space-y-3">
+          {items.map((item: any) => (
+            <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+              {item.image && <img src={item.image} alt={item.name} class="w-14 h-14 rounded-lg object-cover" />}
+              <div class="flex-1">
+                <p class="font-semibold text-gray-900 text-sm">{item.name}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Qty: {item.qty} {item.dimension ? `× ${item.dimension} ${item.pricingUnit || ''}` : ''}</p>
+              </div>
+              <p class="font-bold text-gray-900 text-sm">Rp {Number(item.price).toLocaleString('id')}</p>
+            </div>
+          ))}
+        </div>
+        <div class="border-t border-gray-100 mt-4 pt-4 space-y-2 text-sm">
+          <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>Rp {Number(order.subtotal).toLocaleString('id')}</span></div>
+          {Number(order.discount) > 0 && <div class="flex justify-between text-green-600"><span>Diskon {order.couponCode && `(${order.couponCode})`}</span><span>-Rp {Number(order.discount).toLocaleString('id')}</span></div>}
+          {Number(order.shippingFee) > 0 && <div class="flex justify-between text-gray-600"><span>Ongkir ({order.shippingMethod})</span><span>Rp {Number(order.shippingFee).toLocaleString('id')}</span></div>}
+          <div class="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-100"><span>Total</span><span>Rp {Number(order.total).toLocaleString('id')}</span></div>
+        </div>
+      </div>
+
+      <!-- Payment Proof -->
+      {order.paymentProofUrl && (
+        <div class="card p-5">
+          <h2 class="font-bold text-gray-900 mb-3">Bukti Pembayaran</h2>
+          <img src={order.paymentProofUrl} alt="Bukti Pembayaran" class="rounded-xl max-h-64 object-contain border border-gray-100" />
+        </div>
+      )}
+    </div>
+
+    <!-- Right Column -->
+    <div class="space-y-5">
+      <!-- Status Update -->
+      <div class="card p-5">
+        <h2 class="font-bold text-gray-900 mb-4">Update Status</h2>
+        <div class="mb-3">
+          <span class={`badge ${statusColor[order.status] || 'badge-gray'} capitalize text-sm`}>{order.status}</span>
+        </div>
+        <div id="status-msg" class="hidden mb-3 text-sm p-2 rounded-lg"></div>
+        <select id="status-select" class="input-field mb-3">
+          {statusOptions.map(s => <option value={s} selected={order.status === s}>{s}</option>)}
+        </select>
+        <button id="update-status-btn" class="btn-primary w-full text-sm">Update Status</button>
+      </div>
+
+      <!-- Customer Info -->
+      <div class="card p-5">
+        <h2 class="font-bold text-gray-900 mb-4">Info Pelanggan</h2>
+        <div class="space-y-2 text-sm">
+          <div><span class="text-gray-500">Nama:</span> <span class="font-medium">{order.customerName}</span></div>
+          <div><span class="text-gray-500">Email:</span> <span class="font-medium">{order.customerEmail}</span></div>
+          {order.customerPhone && <div><span class="text-gray-500">Telepon:</span> <span class="font-medium">{order.customerPhone}</span></div>}
+          {order.paymentMethod && <div><span class="text-gray-500">Pembayaran:</span> <span class="font-medium">{order.paymentMethod}</span></div>}
+        </div>
+      </div>
+
+      <!-- Shipping -->
+      {addr && (
+        <div class="card p-5">
+          <h2 class="font-bold text-gray-900 mb-4">Alamat Pengiriman</h2>
+          <div class="text-sm text-gray-700 leading-relaxed">
+            <p class="font-medium">{addr.name}</p>
+            <p>{addr.address}</p>
+            <p>{addr.city}, {addr.province} {addr.postalCode}</p>
+            <p>{addr.phone}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ orderId: id }}>
+  document.getElementById('update-status-btn')?.addEventListener('click', async () => {
+    const status = document.getElementById('status-select').value;
+    const msg = document.getElementById('status-msg');
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        msg.textContent = 'Status berhasil diupdate!';
+        msg.className = 'mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700';
+        msg.classList.remove('hidden');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        msg.textContent = 'Gagal mengupdate status.';
+        msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
+        msg.classList.remove('hidden');
+      }
+    } catch { msg.textContent = 'Error'; msg.classList.remove('hidden'); }
+  });
+</script>

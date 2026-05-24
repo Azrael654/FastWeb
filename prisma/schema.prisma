@@ -1,0 +1,293 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum AccountType {
+  Cash
+  Bank
+}
+
+enum StockHistoryType {
+  In
+  Out
+  Adjustment
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+enum FieldType {
+  text
+  number
+  select
+  multiselect
+  textarea
+  checkbox
+}
+
+model AppUser {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String
+  role      String    @default("customer")
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  orders        Order[]
+  notifications Notification[]
+
+  @@map("app_users")
+}
+
+model Role {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+
+  @@map("roles")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  price        Decimal  @db.Decimal(12, 2)
+  basePrice    Decimal  @db.Decimal(12, 2)
+  pricingType  String   @default("fixed") // fixed | area_m2 | area_cm2 | quantity
+  pricingUnit  String?
+  unitPrice    Decimal? @db.Decimal(12, 2)
+  isFeatured   Boolean  @default(false)
+  categoryId   String
+  image        String?
+  imagesArray  Json?    @default("[]")
+  specifications Json?  @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  productOptions ProductOption[]
+
+  @@map("products")
+}
+
+model ProductOption {
+  id        String   @id @default(cuid())
+  productId String
+  type      String   // material | size | cutting | finishing
+  name      String
+  value     String
+  priceAdj  Decimal  @default(0) @db.Decimal(12, 2)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_options")
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  userId           String?
+  customerName     String
+  customerEmail    String
+  customerPhone    String?
+  items            Json
+  total            Decimal     @db.Decimal(12, 2)
+  subtotal         Decimal     @db.Decimal(12, 2)
+  discount         Decimal     @default(0) @db.Decimal(12, 2)
+  couponCode       String?
+  status           OrderStatus @default(pending)
+  date             DateTime    @default(now())
+  shippingMethod   String?
+  shippingFee      Decimal     @default(0) @db.Decimal(12, 2)
+  shippingAddress  Json?
+  paymentProofUrl  String?
+  paymentMethod    String?
+  paymentAccountId String?
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user AppUser? @relation(fields: [userId], references: [id])
+
+  @@map("orders")
+}
+
+model BlogPost {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  excerpt   String?
+  content   String
+  author    String
+  date      DateTime @default(now())
+  image     String?
+  published Boolean  @default(false)
+  category  String?
+  tagsArray Json?    @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("blog_posts")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  type      String   @default("lead") // lead | vendor | client
+  notes     String?
+  dateAdded DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  name      String
+  type      AccountType
+  balance   Decimal     @default(0) @db.Decimal(14, 2)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  accountId   String
+  amount      Decimal         @db.Decimal(12, 2)
+  date        DateTime        @default(now())
+  category    String?
+  description String?
+  referenceId String?
+  imageUrl    String?
+  createdAt   DateTime        @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@map("transactions")
+}
+
+model RawMaterial {
+  id        String   @id @default(cuid())
+  name      String
+  unit      String
+  stock     Decimal  @default(0) @db.Decimal(12, 3)
+  minStock  Decimal  @default(0) @db.Decimal(12, 3)
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockHistory StockHistory[]
+
+  @@map("raw_materials")
+}
+
+model StockHistory {
+  id            String           @id @default(cuid())
+  materialId    String
+  type          StockHistoryType
+  quantity      Decimal          @db.Decimal(12, 3)
+  previousStock Decimal          @db.Decimal(12, 3)
+  currentStock  Decimal          @db.Decimal(12, 3)
+  note          String?
+  date          DateTime         @default(now())
+
+  material RawMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@map("stock_history")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  message   String
+  type      String   @default("info") // info | warning | success | error
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user AppUser? @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model Coupon {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  discountType   DiscountType
+  discountValue  Decimal      @db.Decimal(10, 2)
+  minOrderValue  Decimal      @default(0) @db.Decimal(12, 2)
+  expiryDate     DateTime?
+  usageLimit     Int?
+  usageCount     Int          @default(0)
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("coupons")
+}
+
+model GlobalField {
+  id           String    @id @default(cuid())
+  name         String    @unique
+  label        String
+  type         FieldType
+  optionsArray Json?     @default("[]")
+  required     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@map("global_fields")
+}

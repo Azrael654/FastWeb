@@ -1,0 +1,419 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const now = new Date();
+
+// Read custom date range OR preset period
+const startParam = Astro.url.searchParams.get('start');
+const endParam   = Astro.url.searchParams.get('end');
+const period     = Astro.url.searchParams.get('period') || 'all';
+
+let filterStart: Date | undefined;
+let filterEnd: Date | undefined;
+
+if (startParam) {
+  filterStart = new Date(startParam + 'T00:00:00');
+  filterEnd   = endParam ? new Date(endParam + 'T23:59:59') : new Date(now.getTime());
+} else if (period === '7days') {
+  filterStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+} else if (period === '30days') {
+  filterStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+} else if (period === 'this_year') {
+  filterStart = new Date(now.getFullYear(), 0, 1);
+}
+
+const whereClause = filterStart
+  ? { createdAt: { gte: filterStart, ...(filterEnd ? { lte: filterEnd } : {}) } }
+  : {};
+
+const orders = await prisma.order.findMany({ 
+  where: whereClause,
+  orderBy: { createdAt: 'asc' }
+});
+
+// Friendly label for UI
+const todayStr = now.toISOString().slice(0, 10);
+const startInputVal = startParam || '';
+const endInputVal   = endParam   || '';
+
+// 1. Revenue & Order Volume (Day-by-Day)
+let totalRevenue = 0;
+const volumeByDay: Record<string, number> = {};
+const revenueByDay: Record<string, number> = {};
+const statusDistribution: Record<string, number> = {
+  pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0
+};
+
+// 4 & 5. Top Products & Top Customers
+const productSales: Record<string, { name: string, qty: number, revenue: number }> = {};
+const customerStats: Record<string, { name: string, email: string, spent: number, orders: number }> = {};
+
+orders.forEach(order => {
+  const dateStr = order.createdAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  
+  // Status Distribution
+  statusDistribution[order.status] = (statusDistribution[order.status] || 0) + 1;
+  
+  // Volume by Day
+  volumeByDay[dateStr] = (volumeByDay[dateStr] || 0) + 1;
+
+  // Only count non-cancelled for Revenue & Top stats
+  if (order.status !== 'cancelled') {
+    const orderTotal = Number(order.total);
+    totalRevenue += orderTotal;
+    revenueByDay[dateStr] = (revenueByDay[dateStr] || 0) + orderTotal;
+
+    // Customer Stats
+    const email = order.customerEmail;
+    if (!customerStats[email]) {
+      customerStats[email] = { name: order.customerName, email, spent: 0, orders: 0 };
+    }
+    customerStats[email].spent += orderTotal;
+    customerStats[email].orders += 1;
+
+    // Product Stats
+    const items = Array.isArray(order.items) ? order.items : [];
+    items.forEach((item: any) => {
+      const id = item.id || item.name;
+      if (!productSales[id]) {
+        productSales[id] = { name: item.name, qty: 0, revenue: 0 };
+      }
+      productSales[id].qty += item.qty;
+      productSales[id].revenue += (Number(item.price) * item.qty);
+    });
+  }
+});
+
+const topProducts = Object.values(productSales)
+  .sort((a, b) => b.qty - a.qty)
+  .slice(0, 10);
+
+const topCustomers = Object.values(customerStats)
+  .sort((a, b) => b.spent - a.spent)
+  .slice(0, 10);
+
+// Prepare Chart Data
+const chartLabels = Object.keys(volumeByDay);
+const chartVolumeData = Object.values(volumeByDay);
+const chartRevenueData = chartLabels.map(label => revenueByDay[label] || 0);
+
+const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
+---
+<AdminLayout title="Statistik" currentPage="statistics">
+  <div class="flex flex-col gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Laporan Statistik</h2>
+        <p class="text-sm text-gray-500">Performa bisnis dan analitik lanjutan</p>
+      </div>
+      <a id="export-btn" href={`/api/export-analytics?start=${startInputVal}&end=${endInputVal}&period=${startInputVal ? '' : period}`} class="btn-primary text-sm py-2 flex items-center gap-2 self-start sm:self-center" style="background:#16a34a">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Export CSV
+      </a>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card p-4 flex flex-col sm:flex-row sm:items-end gap-4">
+      <!-- Quick Presets -->
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-medium text-gray-500 shrink-0">Cepat:</span>
+        {[
+          { label: '7 Hari', p: '7days' },
+          { label: '30 Hari', p: '30days' },
+          { label: 'Tahun Ini', p: 'this_year' },
+          { label: 'Semua', p: 'all' },
+        ].map(btn => (
+          <a
+            href={`/admin/statistics?period=${btn.p}`}
+            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              !startInputVal && period === btn.p
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >{btn.label}</a>
+        ))}
+      </div>
+
+      <!-- Divider -->
+      <div class="hidden sm:block w-px bg-gray-200 self-stretch"></div>
+
+      <!-- Date Range Inputs -->
+      <form action="/admin/statistics" method="GET" id="date-range-form" class="flex flex-col sm:flex-row sm:items-end gap-3 flex-1">
+        <div class="flex items-center gap-2 flex-1">
+          <div class="flex-1">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Dari Tanggal</label>
+            <input
+              type="date"
+              id="start-date"
+              name="start"
+              value={startInputVal}
+              max={todayStr}
+              class="input-field text-sm py-2 w-full"
+            />
+          </div>
+          <span class="text-gray-400 mt-5">→</span>
+          <div class="flex-1">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Sampai Tanggal</label>
+            <input
+              type="date"
+              id="end-date"
+              name="end"
+              value={endInputVal}
+              max={todayStr}
+              class="input-field text-sm py-2 w-full"
+            />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary text-sm py-2 px-5 shrink-0">Terapkan</button>
+        {startInputVal && (
+          <a href="/admin/statistics" class="btn-ghost text-sm py-2 px-4 shrink-0 text-gray-600">Reset</a>
+        )}
+      </form>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="card p-6 border-l-4 border-l-blue-600">
+      <p class="text-sm font-medium text-gray-500">Total Pendapatan</p>
+      <h3 class="text-2xl font-bold text-gray-900 mt-2">{formatPrice(totalRevenue)}</h3>
+    </div>
+    <div class="card p-6 border-l-4 border-l-green-500">
+      <p class="text-sm font-medium text-gray-500">Total Pesanan Sukses</p>
+      <h3 class="text-2xl font-bold text-gray-900 mt-2">{orders.filter(o => o.status !== 'cancelled').length}</h3>
+    </div>
+    <div class="card p-6 border-l-4 border-l-yellow-500">
+      <p class="text-sm font-medium text-gray-500">Pesanan Diproses</p>
+      <h3 class="text-2xl font-bold text-gray-900 mt-2">{statusDistribution.processing + statusDistribution.pending}</h3>
+    </div>
+    <div class="card p-6 border-l-4 border-l-red-500">
+      <p class="text-sm font-medium text-gray-500">Pesanan Dibatalkan</p>
+      <h3 class="text-2xl font-bold text-gray-900 mt-2">{statusDistribution.cancelled}</h3>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="card p-6 lg:col-span-2">
+      <h3 class="font-bold text-gray-900 mb-4">Volume & Pendapatan Pesanan (Harian)</h3>
+      <div class="relative h-72 w-full">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card p-6">
+      <h3 class="font-bold text-gray-900 mb-4">Distribusi Status Pesanan</h3>
+      <div class="relative h-64 w-full flex justify-center">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables: Top Products & Customers -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card p-6">
+      <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11l7-7 7 7M5 19l7-7 7 7"/></svg>
+        Produk Teratas
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
+              <th class="py-3 pr-4 font-medium">Produk</th>
+              <th class="py-3 px-4 font-medium text-right">Terjual</th>
+              <th class="py-3 pl-4 font-medium text-right">Pendapatan</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {topProducts.map((p, i) => (
+              <tr class="hover:bg-gray-50">
+                <td class="py-3 pr-4">
+                  <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">{i + 1}</span>
+                    <span class="text-sm font-medium text-gray-900">{p.name}</span>
+                  </div>
+                </td>
+                <td class="py-3 px-4 text-right text-sm text-gray-600">{p.qty} unit</td>
+                <td class="py-3 pl-4 text-right text-sm font-medium text-blue-600">{formatPrice(p.revenue)}</td>
+              </tr>
+            ))}
+            {topProducts.length === 0 && <tr><td colspan="3" class="py-4 text-center text-sm text-gray-500">Belum ada data</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        Pelanggan Teratas
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs text-gray-500 uppercase tracking-wider">
+              <th class="py-3 pr-4 font-medium">Pelanggan</th>
+              <th class="py-3 px-4 font-medium text-center">Pesanan</th>
+              <th class="py-3 pl-4 font-medium text-right">Total Belanja</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {topCustomers.map((c, i) => (
+              <tr class="hover:bg-gray-50">
+                <td class="py-3 pr-4">
+                  <div class="text-sm font-medium text-gray-900 truncate max-w-[150px] sm:max-w-[200px]">{c.name}</div>
+                  <div class="text-xs text-gray-500 truncate max-w-[150px] sm:max-w-[200px]">{c.email}</div>
+                </td>
+                <td class="py-3 px-4 text-center text-sm text-gray-600">
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">{c.orders}</span>
+                </td>
+                <td class="py-3 pl-4 text-right text-sm font-medium text-green-600">{formatPrice(c.spent)}</td>
+              </tr>
+            ))}
+            {topCustomers.length === 0 && <tr><td colspan="3" class="py-4 text-center text-sm text-gray-500">Belum ada data</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script define:vars={{ chartLabels, chartVolumeData, chartRevenueData, statusDistribution }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Bar/Line Combo Chart
+    const ctxMain = document.getElementById('mainChart');
+    if (ctxMain) {
+      new Chart(ctxMain, {
+        type: 'bar',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            {
+              label: 'Pendapatan (Rp)',
+              data: chartRevenueData,
+              type: 'line',
+              borderColor: '#2563eb',
+              backgroundColor: '#2563eb',
+              borderWidth: 2,
+              tension: 0.3,
+              yAxisID: 'y1',
+            },
+            {
+              label: 'Volume Pesanan',
+              data: chartVolumeData,
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1,
+              borderRadius: 4,
+              yAxisID: 'y',
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: { display: true, text: 'Volume' },
+              beginAtZero: true
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: { display: true, text: 'Pendapatan' },
+              grid: { drawOnChartArea: false },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Doughnut Chart
+    const ctxDonut = document.getElementById('donutChart');
+    if (ctxDonut) {
+      new Chart(ctxDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+          datasets: [{
+            data: [
+              statusDistribution.pending || 0,
+              statusDistribution.processing || 0,
+              statusDistribution.shipped || 0,
+              statusDistribution.delivered || 0,
+              statusDistribution.cancelled || 0
+            ],
+            backgroundColor: [
+              '#eab308', // yellow
+              '#3b82f6', // blue
+              '#8b5cf6', // purple
+              '#22c55e', // green
+              '#ef4444'  // red
+            ],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          },
+          cutout: '70%'
+        }
+      });
+    }
+  });
+</script>
+
+<script>
+  const startInput = document.getElementById('start-date') as HTMLInputElement;
+  const endInput   = document.getElementById('end-date')   as HTMLInputElement;
+  const exportBtn  = document.getElementById('export-btn') as HTMLAnchorElement;
+  const form       = document.getElementById('date-range-form') as HTMLFormElement;
+
+  function syncExportHref() {
+    if (!exportBtn) return;
+    const s = startInput?.value || '';
+    const e = endInput?.value  || '';
+    if (s) {
+      exportBtn.href = `/api/export-analytics?start=${s}&end=${e}`;
+    }
+    // If no custom range, keep preset href — don't override
+  }
+
+  // Keep end-date min in sync with start-date so user can't pick an invalid range
+  startInput?.addEventListener('change', () => {
+    if (endInput) {
+      endInput.min = startInput.value;
+      // Auto-clear end date if it's now before start date
+      if (endInput.value && endInput.value < startInput.value) {
+        endInput.value = '';
+      }
+    }
+    syncExportHref();
+  });
+
+  endInput?.addEventListener('change', syncExportHref);
+
+  // Validate on submit: require end date if start is filled
+  form?.addEventListener('submit', (e) => {
+    if (startInput?.value && !endInput?.value) {
+      e.preventDefault();
+      endInput.setCustomValidity('Pilih tanggal akhir');
+      endInput.reportValidity();
+      return;
+    }
+    endInput?.setCustomValidity('');
+  });
+</script>

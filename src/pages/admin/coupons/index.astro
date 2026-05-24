@@ -1,0 +1,83 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
+---
+<AdminLayout title="Kupon" currentPage="coupons">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-gray-900">Manajemen Kupon</h2>
+      <p class="text-sm text-gray-500">{coupons.length} kupon aktif</p>
+    </div>
+    <button id="add-coupon-btn" class="btn-primary text-sm">+ Buat Kupon</button>
+  </div>
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Kode</th><th>Tipe</th><th>Nilai</th><th>Min Order</th><th>Kadaluarsa</th><th>Penggunaan</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {coupons.map((c: any) => (
+            <tr>
+              <td><span class="font-mono font-bold text-sm text-blue-700 bg-blue-50 px-2 py-0.5 rounded">{c.code}</span></td>
+              <td class="text-sm capitalize text-gray-600">{c.discountType}</td>
+              <td class="text-sm font-semibold text-gray-900">
+                {c.discountType === 'percentage' ? `${Number(c.discountValue)}%` : `Rp ${Number(c.discountValue).toLocaleString('id')}`}
+              </td>
+              <td class="text-sm text-gray-600">{Number(c.minOrderValue) > 0 ? `Rp ${Number(c.minOrderValue).toLocaleString('id')}` : '-'}</td>
+              <td class="text-xs text-gray-500">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString('id-ID') : 'Tidak ada'}</td>
+              <td class="text-sm text-gray-600">{c.usageCount}{c.usageLimit ? `/${c.usageLimit}` : ''}</td>
+              <td>{c.enabled ? <span class="badge-green text-xs">Aktif</span> : <span class="badge-red text-xs">Nonaktif</span>}</td>
+              <td><button data-id={c.id} class="toggle-coupon text-blue-600 hover:underline text-xs">{c.enabled ? 'Nonaktifkan' : 'Aktifkan'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="coupon-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-4">Buat Kupon Baru</h3>
+      <form id="coupon-form" class="space-y-3">
+        <div><label class="label">Kode Kupon *</label><input name="code" required class="input-field text-sm uppercase" placeholder="DISKON20" style="text-transform:uppercase" /></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Tipe Diskon</label>
+            <select name="discountType" class="input-field text-sm">
+              <option value="percentage">Persentase (%)</option>
+              <option value="fixed">Nominal (Rp)</option>
+            </select>
+          </div>
+          <div><label class="label">Nilai Diskon</label><input name="discountValue" type="number" min="1" required class="input-field text-sm" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Min Order (Rp)</label><input name="minOrderValue" type="number" value="0" class="input-field text-sm" /></div>
+          <div><label class="label">Batas Penggunaan</label><input name="usageLimit" type="number" class="input-field text-sm" placeholder="Kosong = tidak terbatas" /></div>
+        </div>
+        <div><label class="label">Kadaluarsa</label><input name="expiryDate" type="date" class="input-field text-sm" /></div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1 text-sm">Buat Kupon</button>
+          <button type="button" id="close-coupon-modal" class="btn-ghost flex-1 text-sm">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  document.getElementById('add-coupon-btn')?.addEventListener('click', () => document.getElementById('coupon-modal')?.classList.remove('hidden'));
+  document.getElementById('close-coupon-modal')?.addEventListener('click', () => document.getElementById('coupon-modal')?.classList.add('hidden'));
+
+  document.getElementById('coupon-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target as HTMLFormElement);
+    const data: any = Object.fromEntries(fd);
+    data.code = data.code.toUpperCase();
+    if (!data.usageLimit) delete data.usageLimit;
+    if (!data.expiryDate) delete data.expiryDate;
+    const res = await fetch('/api/coupons', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal membuat kupon');
+  });
+</script>

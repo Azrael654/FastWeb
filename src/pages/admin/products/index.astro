@@ -1,0 +1,83 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const search = Astro.url.searchParams.get('search') || '';
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const limit = 15;
+const where: any = search ? { name: { contains: search, mode: 'insensitive' } } : {};
+
+const [products, total, categories] = await Promise.all([
+  prisma.product.findMany({ where, include: { category: true }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+  prisma.product.count({ where }),
+  prisma.category.findMany({ orderBy: { name: 'asc' } }),
+]);
+const totalPages = Math.ceil(total / limit);
+---
+<AdminLayout title="Produk" currentPage="products">
+  <div class="flex items-center justify-between mb-5">
+    <form method="GET" class="flex gap-2">
+      <input name="search" value={search} type="text" class="input-field text-sm py-2 w-64" placeholder="Cari produk..." />
+      <button type="submit" class="btn-primary text-sm py-2">Cari</button>
+      {search && <a href="/admin/products" class="btn-ghost text-sm py-2">Reset</a>}
+    </form>
+    <a href="/admin/products/new" class="btn-primary text-sm">+ Tambah Produk</a>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between p-5 border-b border-gray-50">
+      <h2 class="font-bold text-gray-900">Daftar Produk <span class="badge-gray ml-2">{total}</span></h2>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Produk</th><th>Kategori</th><th>Harga</th><th>Tipe Harga</th><th>Featured</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {products.map(p => (
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                    {p.image ? <img src={p.image} alt={p.name} class="w-full h-full object-cover" /> : <div class="w-full h-full bg-blue-50"></div>}
+                  </div>
+                  <div>
+                    <p class="font-medium text-sm text-gray-900">{p.name}</p>
+                    <p class="text-xs text-gray-500 font-mono">{p.slug}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="text-sm">{p.category?.name || '-'}</td>
+              <td class="text-sm font-semibold">Rp {Number(p.price).toLocaleString('id')}</td>
+              <td><span class="badge-blue text-xs">{p.pricingType}</span></td>
+              <td>{p.isFeatured ? <span class="badge-green">Ya</span> : <span class="badge-gray">Tidak</span>}</td>
+              <td>
+                <div class="flex gap-2">
+                  <a href={`/admin/products/${p.id}`} class="text-blue-600 hover:underline text-xs font-medium">Edit</a>
+                  <button data-id={p.id} class="delete-product text-red-500 hover:underline text-xs font-medium">Hapus</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {totalPages > 1 && (
+      <div class="flex justify-center gap-2 p-4 border-t border-gray-50">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+          <a href={`/admin/products?page=${p}${search ? `&search=${search}` : ''}`} class={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${p === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{p}</a>
+        ))}
+      </div>
+    )}
+  </div>
+</AdminLayout>
+
+<script>
+  document.querySelectorAll('.delete-product').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Hapus produk ini?')) return;
+      const id = (btn as HTMLElement).dataset.id;
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      if (res.ok) location.reload();
+      else alert('Gagal menghapus produk');
+    });
+  });
+</script>

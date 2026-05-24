@@ -1,0 +1,17 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import ReactCheckoutForm from '../components/ReactCheckoutForm';
+import { getSessionUser } from '../lib/auth';
+
+const user = getSessionUser(Astro.cookies);
+---
+<MainLayout title="Checkout – Fast Print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="section-title">Checkout</h1>
+      <p class="section-subtitle">Lengkapi detail pengiriman untuk menyelesaikan pesanan</p>
+    </div>
+
+    <ReactCheckoutForm client:only="react" user={user} />
+  </div>
+</MainLayout>

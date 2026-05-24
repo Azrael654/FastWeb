@@ -1,0 +1,45 @@
+---
+import '../styles/global.css';
+import AdminSidebar from '../components/admin/AdminSidebar.astro';
+import AdminHeader from '../components/admin/AdminHeader.astro';
+import { getSessionUser, requireAdmin } from '../lib/auth';
+
+const user = Astro.locals.user || requireAdmin(Astro.cookies);
+
+interface Props {
+  title?: string;
+  currentPage?: string;
+}
+const { title = 'Admin', currentPage = '' } = Astro.props;
+---
+
+<!DOCTYPE html>
+{!user ? (
+  <html lang="id"><head><meta http-equiv="refresh" content="0;url=/login?redirect=/admin" /></head><body>Redirecting...</body></html>
+) : (
+  <html lang="id">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+    <title>{title} – Fast Print Admin</title>
+  </head>
+  <body class="bg-gray-50 antialiased">
+    <div class="flex h-screen overflow-hidden">
+      <!-- Sidebar -->
+      <AdminSidebar currentPage={currentPage} user={user} />
+
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <AdminHeader user={user} title={title} />
+        <main class="flex-1 overflow-y-auto p-6">
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
+)}

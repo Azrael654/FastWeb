@@ -1,0 +1,74 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
+---
+<AdminLayout title="Kategori" currentPage="categories">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-gray-900">Kategori Produk</h2>
+      <p class="text-sm text-gray-500">{categories.length} kategori</p>
+    </div>
+    <button id="add-cat-btn" class="btn-primary text-sm">+ Tambah Kategori</button>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {categories.map(cat => (
+      <div class="card p-4 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+          {cat.image ? <img src={cat.image} alt={cat.name} class="w-8 h-8 object-contain" /> : <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 text-sm">{cat.name}</p>
+          <p class="text-xs text-gray-500 font-mono">{cat.slug}</p>
+          {cat.description && <p class="text-xs text-gray-400 mt-0.5 line-clamp-1">{cat.description}</p>}
+        </div>
+        <button data-id={cat.id} class="delete-cat text-red-400 hover:text-red-600 transition-colors p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    ))}
+  </div>
+
+  <!-- Modal -->
+  <div id="cat-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Kategori</h3>
+      <form id="cat-form" class="space-y-3">
+        <div><label class="label">Nama *</label><input name="name" required class="input-field text-sm" id="cat-name" /></div>
+        <div><label class="label">Slug</label><input name="slug" id="cat-slug" class="input-field text-sm font-mono" /></div>
+        <div><label class="label">Deskripsi</label><textarea name="description" class="input-field text-sm" rows="2"></textarea></div>
+        <div><label class="label">URL Gambar</label><input name="image" type="url" class="input-field text-sm" placeholder="https://..." /></div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1 text-sm">Simpan</button>
+          <button type="button" id="close-cat-modal" class="btn-ghost flex-1 text-sm">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  document.getElementById('add-cat-btn')?.addEventListener('click', () => document.getElementById('cat-modal')?.classList.remove('hidden'));
+  document.getElementById('close-cat-modal')?.addEventListener('click', () => document.getElementById('cat-modal')?.classList.add('hidden'));
+  document.getElementById('cat-name')?.addEventListener('input', (e) => {
+    const slug = (e.target as HTMLInputElement).value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    (document.getElementById('cat-slug') as HTMLInputElement).value = slug;
+  });
+  document.getElementById('cat-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data: any = Object.fromEntries(new FormData(e.target as HTMLFormElement));
+    if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const res = await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menyimpan');
+  });
+  document.querySelectorAll('.delete-cat').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Hapus kategori? Produk yang terkait mungkin terpengaruh.')) return;
+      const id = (btn as HTMLElement).dataset.id;
+      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus');
+    });
+  });
+</script>

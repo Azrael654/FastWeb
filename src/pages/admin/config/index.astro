@@ -1,0 +1,65 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+<AdminLayout title="Konfigurasi" currentPage="config">
+  <div class="max-w-2xl space-y-6">
+    <div class="card p-6">
+      <h2 class="font-bold text-gray-900 text-lg mb-5">Informasi Toko</h2>
+      <form id="config-form" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="label">Nama Toko</label><input class="input-field" value="Fast Print" name="storeName" /></div>
+          <div><label class="label">Tagline</label><input class="input-field" value="Printing Solution" name="tagline" /></div>
+        </div>
+        <div><label class="label">Alamat</label><textarea class="input-field" rows="2" name="address">Jl. Printing No. 123, Jakarta</textarea></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="label">Telepon</label><input class="input-field" value="+62 812-3456-7890" name="phone" /></div>
+          <div><label class="label">Email</label><input class="input-field" type="email" value="info@fastprint.id" name="email" /></div>
+        </div>
+        <div><label class="label">WhatsApp Number</label><input class="input-field" value="62812345678" name="whatsapp" placeholder="62812345678 (tanpa + atau spasi)" /></div>
+        <button type="submit" class="btn-primary">Simpan Perubahan</button>
+      </form>
+    </div>
+
+    <div class="card p-6">
+      <h2 class="font-bold text-gray-900 text-lg mb-5">Metode Pembayaran</h2>
+      <div class="space-y-3">
+        {[
+          { label: 'Transfer Bank BCA', account: '1234567890 a/n Fast Print' },
+          { label: 'Transfer Bank Mandiri', account: '0987654321 a/n Fast Print' },
+          { label: 'QRIS / GoPay / OVO', account: 'Scan QR di kasir' },
+        ].map(m => (
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+            <div>
+              <p class="text-sm font-semibold text-gray-900">{m.label}</p>
+              <p class="text-xs text-gray-500">{m.account}</p>
+            </div>
+            <span class="badge-green text-xs">Aktif</span>
+          </div>
+        ))}
+      </div>
+      <p class="text-xs text-gray-400 mt-3">Kelola metode pembayaran melalui database atau konfigurasi lingkungan.</p>
+    </div>
+
+    <div class="card p-6">
+      <h2 class="font-bold text-gray-900 text-lg mb-5">Metode Pengiriman</h2>
+      <div class="space-y-3">
+        {[
+          { label: 'Ambil di Toko', fee: 'Gratis' },
+          { label: 'Kurir Reguler (J&T / JNE)', fee: 'Dihitung otomatis' },
+          { label: 'Kurir Express', fee: 'Dihitung otomatis' },
+        ].map(s => (
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+            <p class="text-sm font-semibold text-gray-900">{s.label}</p>
+            <span class="text-xs text-gray-500">{s.fee}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+<script>
+  document.getElementById('config-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Konfigurasi tersimpan! (Implementasi penyimpanan ke DB dapat ditambahkan)');
+  });
+</script>

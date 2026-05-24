@@ -1,0 +1,130 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
+---
+<AdminLayout title="Tambah Produk" currentPage="products">
+  <div class="mb-5">
+    <a href="/admin/products" class="text-sm text-blue-600 hover:underline flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Kembali ke Produk
+    </a>
+  </div>
+
+  <div class="max-w-3xl">
+    <div class="card p-6">
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Informasi Produk</h2>
+      <div id="form-msg" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+      <form id="product-form" class="space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Nama Produk *</label>
+            <input name="name" required id="prod-name" class="input-field" placeholder="Banner Outdoor UV" />
+          </div>
+          <div>
+            <label class="label">Slug</label>
+            <input name="slug" id="prod-slug" class="input-field font-mono" placeholder="auto-generated" />
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Deskripsi</label>
+          <textarea name="description" class="input-field" rows="3" placeholder="Deskripsi produk..."></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="label">Kategori *</label>
+            <select name="categoryId" required class="input-field">
+              <option value="">Pilih kategori...</option>
+              {categories.map(c => <option value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label class="label">Tipe Harga *</label>
+            <select name="pricingType" id="pricing-type" class="input-field">
+              <option value="fixed">Fixed (per item)</option>
+              <option value="area_m2">Area m²</option>
+              <option value="area_cm2">Area cm²</option>
+              <option value="quantity">Per kuantitas</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="label">Harga Jual (Rp) *</label>
+            <input name="price" type="number" min="0" step="100" required class="input-field" placeholder="25000" />
+          </div>
+          <div>
+            <label class="label">Harga Dasar (Rp)</label>
+            <input name="basePrice" type="number" min="0" step="100" class="input-field" placeholder="20000" />
+          </div>
+          <div id="unit-price-wrap" class="hidden">
+            <label class="label">Harga per Unit</label>
+            <input name="unitPrice" type="number" min="0" step="100" class="input-field" />
+          </div>
+        </div>
+
+        <div id="pricing-unit-wrap" class="hidden">
+          <label class="label">Satuan Ukuran</label>
+          <input name="pricingUnit" class="input-field" placeholder="m², cm², lembar..." />
+        </div>
+
+        <div>
+          <label class="label">URL Gambar Utama</label>
+          <input name="image" type="url" class="input-field" placeholder="https://..." />
+        </div>
+
+        <div class="flex items-center gap-3">
+          <input type="checkbox" name="isFeatured" id="is-featured" value="true" class="w-4 h-4 text-blue-600 rounded" />
+          <label for="is-featured" class="text-sm font-medium text-gray-700">Tampilkan sebagai produk unggulan di beranda</label>
+        </div>
+
+        <div class="pt-2 flex gap-3">
+          <button type="submit" class="btn-primary px-8">Simpan Produk</button>
+          <a href="/admin/products" class="btn-ghost">Batal</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const nameInput = document.getElementById('prod-name') as HTMLInputElement;
+  const slugInput = document.getElementById('prod-slug') as HTMLInputElement;
+  const pricingType = document.getElementById('pricing-type') as HTMLSelectElement;
+
+  nameInput?.addEventListener('input', () => {
+    slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  });
+
+  pricingType?.addEventListener('change', () => {
+    const isArea = pricingType.value.startsWith('area');
+    document.getElementById('pricing-unit-wrap')?.classList.toggle('hidden', !isArea);
+    document.getElementById('unit-price-wrap')?.classList.toggle('hidden', !isArea);
+  });
+
+  document.getElementById('product-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('form-msg')!;
+    const fd = new FormData(e.target as HTMLFormElement);
+    const data: any = Object.fromEntries(fd);
+    data.isFeatured = fd.get('isFeatured') === 'true';
+    data.price = parseFloat(data.price) || 0;
+    data.basePrice = parseFloat(data.basePrice) || data.price;
+    if (data.unitPrice) data.unitPrice = parseFloat(data.unitPrice);
+    if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) {
+      window.location.href = '/admin/products';
+    } else {
+      const err = await res.json();
+      msg.textContent = err.error || 'Gagal menyimpan produk';
+      msg.className = 'mb-4 p-3 rounded-lg text-sm bg-red-50 text-red-700';
+      msg.classList.remove('hidden');
+    }
+  });
+</script>

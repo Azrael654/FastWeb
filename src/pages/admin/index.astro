@@ -1,0 +1,139 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import prisma from '../../lib/prisma';
+
+const now = new Date();
+const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+const [totalOrders, pendingOrders, monthStats, recentOrders, accounts, lowStock] = await Promise.all([
+  prisma.order.count(),
+  prisma.order.count({ where: { status: 'pending' } }),
+  prisma.order.aggregate({
+    where: { date: { gte: startOfMonth }, status: { not: 'cancelled' } },
+    _sum: { total: true }, _count: true,
+  }),
+  prisma.order.findMany({ orderBy: { date: 'desc' }, take: 6 }),
+  prisma.account.findMany(),
+  prisma.rawMaterial.findMany({ where: { stock: { lte: prisma.rawMaterial.fields.minStock } }, take: 5 }).catch(() => []),
+]);
+
+const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+const monthRevenue = Number(monthStats._sum.total || 0);
+
+const statusColor: Record<string, string> = {
+  pending: 'badge-yellow', processing: 'badge-blue',
+  shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
+};
+---
+<AdminLayout title="Dashboard" currentPage="overview">
+  <!-- Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+    <div class="stat-card">
+      <div>
+        <p class="text-sm text-gray-500 font-medium">Total Pesanan</p>
+        <p class="text-3xl font-bold text-gray-900 mt-1">{totalOrders}</p>
+        <p class="text-xs text-yellow-600 mt-1">{pendingOrders} menunggu konfirmasi</p>
+      </div>
+      <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div>
+        <p class="text-sm text-gray-500 font-medium">Pendapatan Bulan Ini</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">Rp {monthRevenue.toLocaleString('id')}</p>
+        <p class="text-xs text-green-600 mt-1">{monthStats._count} pesanan bulan ini</p>
+      </div>
+      <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div>
+        <p class="text-sm text-gray-500 font-medium">Total Saldo</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">Rp {totalBalance.toLocaleString('id')}</p>
+        <p class="text-xs text-gray-500 mt-1">{accounts.length} rekening aktif</p>
+      </div>
+      <div class="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div>
+        <p class="text-sm text-gray-500 font-medium">Pesanan Pending</p>
+        <p class="text-3xl font-bold text-gray-900 mt-1">{pendingOrders}</p>
+        <a href="/admin/orders?status=pending" class="text-xs text-blue-600 hover:underline mt-1 block">Lihat semua →</a>
+      </div>
+      <div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <!-- Recent Orders -->
+    <div class="xl:col-span-2 card">
+      <div class="flex items-center justify-between p-5 border-b border-gray-50">
+        <h2 class="font-bold text-gray-900">Pesanan Terbaru</h2>
+        <a href="/admin/orders" class="text-sm text-blue-600 hover:underline">Lihat semua</a>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr>
+            <th>ID</th><th>Pelanggan</th><th>Total</th><th>Status</th><th>Tanggal</th>
+          </tr></thead>
+          <tbody>
+            {recentOrders.map(order => (
+              <tr>
+                <td><a href={`/admin/orders/${order.id}`} class="text-blue-600 hover:underline font-mono text-xs">{order.id.slice(-8)}</a></td>
+                <td>
+                  <p class="font-medium text-gray-900">{order.customerName}</p>
+                  <p class="text-xs text-gray-500">{order.customerEmail}</p>
+                </td>
+                <td class="font-semibold">Rp {Number(order.total).toLocaleString('id')}</td>
+                <td><span class={`badge ${statusColor[order.status] || 'badge-gray'} capitalize`}>{order.status}</span></td>
+                <td class="text-gray-500 text-xs">{new Date(order.date).toLocaleDateString('id-ID')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Quick Links & Accounts -->
+    <div class="space-y-5">
+      <div class="card p-5">
+        <h2 class="font-bold text-gray-900 mb-4">Akun Keuangan</h2>
+        {accounts.length === 0 ? (
+          <p class="text-sm text-gray-400">Belum ada akun. <a href="/admin/finance" class="text-blue-600">Tambah akun</a></p>
+        ) : accounts.map(acc => (
+          <div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+            <div>
+              <p class="text-sm font-semibold text-gray-900">{acc.name}</p>
+              <p class="text-xs text-gray-500">{acc.type}</p>
+            </div>
+            <p class="font-bold text-sm text-green-600">Rp {Number(acc.balance).toLocaleString('id')}</p>
+          </div>
+        ))}
+        <a href="/admin/finance" class="btn-outline w-full mt-4 text-sm">Kelola Keuangan</a>
+      </div>
+
+      <div class="card p-5">
+        <h2 class="font-bold text-gray-900 mb-4">Akses Cepat</h2>
+        <div class="grid grid-cols-2 gap-2">
+          {[
+            { href: '/admin/orders', label: 'Pesanan', icon: '📦' },
+            { href: '/admin/products', label: 'Produk', icon: '🛍️' },
+            { href: '/admin/inventory', label: 'Inventori', icon: '📋' },
+            { href: '/admin/blog', label: 'Blog', icon: '✍️' },
+          ].map(item => (
+            <a href={item.href} class="flex flex-col items-center justify-center p-3 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-sm font-medium text-gray-600 transition-colors gap-1">
+              <span class="text-xl">{item.icon}</span>
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

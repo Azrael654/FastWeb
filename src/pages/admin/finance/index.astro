@@ -1,0 +1,167 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const [accounts, transactions] = await Promise.all([
+  prisma.account.findMany({ orderBy: { name: 'asc' } }),
+  prisma.transaction.findMany({ include: { account: true }, orderBy: { date: 'desc' }, take: 30 }),
+]);
+const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+const monthIncome = transactions.filter(t => t.type === 'income' && new Date(t.date).getMonth() === new Date().getMonth()).reduce((s, t) => s + Number(t.amount), 0);
+const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t.date).getMonth() === new Date().getMonth()).reduce((s, t) => s + Number(t.amount), 0);
+---
+<AdminLayout title="Keuangan" currentPage="finance">
+  <!-- Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+    <div class="stat-card">
+      <div><p class="text-sm text-gray-500">Total Saldo</p><p class="text-2xl font-bold text-gray-900 mt-1">Rp {totalBalance.toLocaleString('id')}</p></div>
+      <div class="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div><p class="text-sm text-gray-500">Pemasukan Bulan Ini</p><p class="text-2xl font-bold text-green-600 mt-1">Rp {monthIncome.toLocaleString('id')}</p></div>
+      <div class="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div><p class="text-sm text-gray-500">Pengeluaran Bulan Ini</p><p class="text-2xl font-bold text-red-500 mt-1">Rp {monthExpense.toLocaleString('id')}</p></div>
+      <div class="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <!-- Accounts -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-gray-900">Rekening</h2>
+        <button id="add-account-btn" class="btn-primary text-xs py-1.5 px-3">+ Tambah</button>
+      </div>
+      <div class="space-y-3">
+        {accounts.map(acc => (
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+            <div>
+              <p class="font-semibold text-sm text-gray-900">{acc.name}</p>
+              <span class="badge-blue text-xs">{acc.type}</span>
+            </div>
+            <p class={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Rp {Number(acc.balance).toLocaleString('id')}</p>
+          </div>
+        ))}
+        {accounts.length === 0 && <p class="text-sm text-gray-400 text-center py-4">Belum ada rekening</p>}
+      </div>
+    </div>
+
+    <!-- Add Transaction -->
+    <div class="card p-5">
+      <h2 class="font-bold text-gray-900 mb-4">Catat Transaksi</h2>
+      <div id="tx-msg" class="hidden mb-3 text-sm p-2 rounded-lg"></div>
+      <form id="tx-form" class="space-y-3">
+        <div>
+          <label class="label">Tipe</label>
+          <select name="type" id="tx-type" class="input-field text-sm">
+            <option value="income">Pemasukan</option>
+            <option value="expense">Pengeluaran</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Rekening</label>
+          <select name="accountId" class="input-field text-sm">
+            {accounts.map(a => <option value={a.id}>{a.name} ({a.type})</option>)}
+          </select>
+        </div>
+        <div>
+          <label class="label">Jumlah (Rp)</label>
+          <input name="amount" type="number" min="1" required class="input-field text-sm" placeholder="50000" />
+        </div>
+        <div>
+          <label class="label">Kategori</label>
+          <input name="category" class="input-field text-sm" placeholder="Operasional, Pembelian..." />
+        </div>
+        <div>
+          <label class="label">Deskripsi</label>
+          <input name="description" class="input-field text-sm" placeholder="Keterangan transaksi" />
+        </div>
+        <button type="submit" class="btn-primary w-full text-sm">Simpan Transaksi</button>
+      </form>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+      <div class="p-5 border-b border-gray-50">
+        <h2 class="font-bold text-gray-900">Transaksi Terbaru</h2>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {transactions.slice(0, 10).map(tx => (
+          <div class="flex items-center justify-between px-5 py-3">
+            <div class="flex items-center gap-3">
+              <div class={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-green-50' : 'bg-red-50'}`}>
+                <svg class={`w-4 h-4 ${tx.type === 'income' ? 'text-green-500' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {tx.type === 'income'
+                    ? <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
+                    : <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/>}
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-900">{tx.description || tx.category || '-'}</p>
+                <p class="text-xs text-gray-500">{tx.account.name} · {new Date(tx.date).toLocaleDateString('id-ID')}</p>
+              </div>
+            </div>
+            <p class={`text-sm font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
+              {tx.type === 'income' ? '+' : '-'}Rp {Number(tx.amount).toLocaleString('id')}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div id="account-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Rekening</h3>
+      <form id="account-form" class="space-y-4">
+        <div><label class="label">Nama Rekening</label><input name="name" required class="input-field" placeholder="BCA, Kas Operasional..." /></div>
+        <div><label class="label">Tipe</label>
+          <select name="type" class="input-field">
+            <option value="Cash">Cash</option>
+            <option value="Bank">Bank</option>
+          </select>
+        </div>
+        <div><label class="label">Saldo Awal (Rp)</label><input name="balance" type="number" value="0" required class="input-field" /></div>
+        <div class="flex gap-3"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-account-modal" class="btn-ghost flex-1">Batal</button></div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  document.getElementById('add-account-btn')?.addEventListener('click', () => document.getElementById('account-modal')?.classList.remove('hidden'));
+  document.getElementById('close-account-modal')?.addEventListener('click', () => document.getElementById('account-modal')?.classList.add('hidden'));
+
+  document.getElementById('account-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
+    const res = await fetch('/api/finance/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menambah rekening');
+  });
+
+  document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('tx-msg')!;
+    const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
+    const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) {
+      msg.textContent = 'Transaksi berhasil disimpan!';
+      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700';
+      msg.classList.remove('hidden');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      msg.textContent = 'Gagal menyimpan transaksi';
+      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
+      msg.classList.remove('hidden');
+    }
+  });
+</script>

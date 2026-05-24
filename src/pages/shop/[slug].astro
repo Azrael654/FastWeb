@@ -1,0 +1,200 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import prisma from '../../lib/prisma';
+
+const { slug } = Astro.params;
+
+const product = await prisma.product.findUnique({
+  where: { slug },
+  include: { category: true, productOptions: true },
+});
+
+if (!product) return Astro.redirect('/shop');
+
+const relatedProducts = await prisma.product.findMany({
+  where: { categoryId: product.categoryId, slug: { not: slug } },
+  take: 4,
+});
+
+const optionsByType = product.productOptions.reduce((acc: any, opt) => {
+  if (!acc[opt.type]) acc[opt.type] = [];
+  acc[opt.type].push(opt);
+  return acc;
+}, {});
+
+const images = Array.isArray(product.imagesArray) ? product.imagesArray : [];
+if (product.image && !images.includes(product.image)) images.unshift(product.image);
+---
+<MainLayout title={`${product.name} – Fast Print`} description={product.description || ''}>
+  <div id="product-container" data-product={JSON.stringify({ id: product.id, name: product.name, price: Number(product.price), basePrice: Number(product.basePrice), pricingType: product.pricingType, pricingUnit: product.pricingUnit, image: product.image, slug: product.slug })} class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-8">
+      <a href="/" class="hover:text-blue-600">Beranda</a>
+      <span>/</span>
+      <a href="/shop" class="hover:text-blue-600">Produk</a>
+      <span>/</span>
+      {product.category && <><a href={`/shop?category=${product.category.id}`} class="hover:text-blue-600">{product.category.name}</a><span>/</span></>}
+      <span class="text-gray-900 font-medium truncate">{product.name}</span>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
+      <!-- Images -->
+      <div>
+        <div class="aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-3" id="main-image-wrap">
+          {images[0] ? (
+            <img id="main-image" src={String(images[0])} alt={product.name} class="w-full h-full object-cover" />
+          ) : (
+            <div class="w-full h-full flex items-center justify-center">
+              <svg class="w-24 h-24 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+          )}
+        </div>
+        {images.length > 1 && (
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            {images.map((img, i) => (
+              <button onclick={`document.getElementById('main-image').src='${img}'`} class="w-16 h-16 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 shrink-0 transition-all">
+                <img src={String(img)} alt="" class="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <!-- Product Info -->
+      <div>
+        {product.category && <span class="badge-blue mb-3">{product.category.name}</span>}
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+        <div id="price-display" class="text-3xl font-bold text-blue-600 mb-6">
+          {product.pricingType === 'fixed'
+            ? `Rp ${Number(product.price).toLocaleString('id')}`
+            : `Rp ${Number(product.basePrice).toLocaleString('id')} / ${product.pricingUnit}`}
+        </div>
+
+        {product.description && (
+          <p class="text-gray-600 leading-relaxed mb-6">{product.description}</p>
+        )}
+
+        <!-- Options -->
+        {Object.entries(optionsByType).map(([type, opts]: any) => (
+          <div class="mb-5">
+            <label class="label capitalize">{type}</label>
+            <div class="flex flex-wrap gap-2">
+              {opts.map((opt: any) => (
+                <button
+                  data-option-type={type}
+                  data-option-id={opt.id}
+                  data-price-adj={opt.priceAdj}
+                  class={`option-btn px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${opt.isDefault ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-700 hover:border-blue-400'}`}
+                >
+                  {opt.name}
+                  {Number(opt.priceAdj) !== 0 && <span class="text-xs ml-1">(+Rp {Number(opt.priceAdj).toLocaleString('id')})</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <!-- Quantity & Area (if applicable) -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          {product.pricingType !== 'fixed' && (
+            <div>
+              <label class="label" for="dimension">Ukuran ({product.pricingUnit})</label>
+              <input id="dimension" type="number" min="0.1" step="0.1" value="1" class="input-field" />
+            </div>
+          )}
+          <div>
+            <label class="label" for="qty">Jumlah</label>
+            <input id="qty" type="number" min="1" value="1" class="input-field" />
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="add-to-cart-btn" class="btn-primary flex-1 py-3 text-base">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            Tambah ke Keranjang
+          </button>
+          <a href={`https://wa.me/62812345678?text=Halo, saya ingin memesan ${encodeURIComponent(product.name)}`} target="_blank" class="btn-secondary px-5 py-3">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related -->
+    {relatedProducts.length > 0 && (
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Produk Terkait</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
+          {relatedProducts.map(p => (
+            <a href={`/shop/${p.slug}`} class="card-hover group">
+              <div class="aspect-square bg-gray-100 overflow-hidden">
+                {p.image ? <img src={p.image} alt={p.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /> : <div class="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100"></div>}
+              </div>
+              <div class="p-3">
+                <h3 class="text-sm font-semibold text-gray-900 group-hover:text-blue-600 line-clamp-2">{p.name}</h3>
+                <p class="text-blue-600 font-bold text-sm mt-1">Rp {Number(p.price).toLocaleString('id')}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</MainLayout>
+
+<script>
+  import { addToCart } from '../../store/cart';
+
+  const container = document.getElementById('product-container');
+  if (container) {
+    const product = JSON.parse(container.dataset.product || '{}');
+    let selectedOptions: Record<string, { id: string; priceAdj: number }> = {};
+    let basePrice = product.basePrice || product.price;
+
+    function calcPrice() {
+      let adj = Object.values(selectedOptions).reduce((sum, opt) => sum + (opt.priceAdj || 0), 0);
+      let unit = basePrice + adj;
+      const dimEl = document.getElementById('dimension') as HTMLInputElement;
+      const qtyEl = document.getElementById('qty') as HTMLInputElement;
+      const dim = dimEl ? parseFloat(dimEl.value || '1') : 1;
+      const qty = qtyEl ? parseInt(qtyEl.value || '1') : 1;
+      const total = product.pricingType === 'fixed' ? unit * qty : unit * dim * qty;
+      const priceDisplay = document.getElementById('price-display');
+      if (priceDisplay) priceDisplay.textContent = `Rp ${total.toLocaleString('id')}`;
+      return total;
+    }
+
+    document.querySelectorAll('.option-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = (btn as HTMLElement).dataset.optionType!;
+        document.querySelectorAll(`[data-option-type="${type}"]`).forEach(b => b.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-700'));
+        btn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-700');
+        selectedOptions[type] = { id: (btn as HTMLElement).dataset.optionId!, priceAdj: parseFloat((btn as HTMLElement).dataset.priceAdj || '0') };
+        calcPrice();
+      });
+    });
+
+    document.getElementById('dimension')?.addEventListener('input', calcPrice);
+    document.getElementById('qty')?.addEventListener('input', calcPrice);
+
+    document.getElementById('add-to-cart-btn')?.addEventListener('click', () => {
+      const dimEl = document.getElementById('dimension') as HTMLInputElement;
+      const qtyEl = document.getElementById('qty') as HTMLInputElement;
+      const qty = qtyEl ? parseInt(qtyEl.value || '1') : 1;
+      const dim = dimEl ? parseFloat(dimEl.value || '1') : 1;
+      const price = calcPrice();
+      
+      addToCart({
+        id: product.id,
+        name: product.name,
+        image: product.image,
+        slug: product.slug,
+        price,
+        qty,
+        dimension: dim,
+        options: selectedOptions
+      });
+      alert('Produk ditambahkan ke keranjang!');
+    });
+  }
+</script>

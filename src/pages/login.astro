@@ -1,0 +1,105 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getSessionUser } from '../lib/auth';
+
+const user = getSessionUser(Astro.cookies);
+if (user) return Astro.redirect('/');
+
+const redirectTo = Astro.url.searchParams.get('redirect') || '/';
+---
+<MainLayout title="Masuk – Fast Print">
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 flex items-center justify-center py-12 px-4">
+    <div class="w-full max-w-md">
+      <!-- Card -->
+      <div class="card p-8 shadow-xl">
+        <div class="text-center mb-8">
+          <a href="/" class="inline-flex items-center gap-2 mb-4">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2zM5 9V7a2 2 0 012-2h10a2 2 0 012 2v2M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/>
+              </svg>
+            </div>
+            <span class="text-xl font-bold text-gray-900">Fast Print</span>
+          </a>
+          <h1 class="text-2xl font-bold text-gray-900" id="form-title">Masuk ke Akun Anda</h1>
+          <p class="text-gray-500 mt-1 text-sm" id="form-subtitle">Selamat datang kembali!</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex rounded-xl bg-gray-100 p-1 mb-6">
+          <button id="tab-login" onclick="switchTab('login')" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white text-blue-700 shadow-sm transition-all">Masuk</button>
+          <button id="tab-register" onclick="switchTab('register')" class="flex-1 py-2 text-sm font-medium rounded-lg text-gray-500 hover:text-gray-700 transition-all">Daftar</button>
+        </div>
+
+        <div id="error-msg" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg"></div>
+
+        <form id="auth-form" class="space-y-4">
+          <div id="name-field" class="hidden">
+            <label class="label" for="name">Nama Lengkap</label>
+            <input id="name" name="name" type="text" class="input-field" placeholder="Nama lengkap Anda" />
+          </div>
+          <div>
+            <label class="label" for="email">Email</label>
+            <input id="email" name="email" type="email" required class="input-field" placeholder="email@contoh.com" />
+          </div>
+          <div>
+            <label class="label" for="password">Password</label>
+            <input id="password" name="password" type="password" required class="input-field" placeholder="••••••••" />
+          </div>
+          <button type="submit" id="submit-btn" class="btn-primary w-full py-3 text-base">
+            Masuk
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</MainLayout>
+
+<script define:vars={{ redirectTo }}>
+  let mode = 'login';
+
+  function switchTab(tab) {
+    mode = tab;
+    const isRegister = tab === 'register';
+    document.getElementById('tab-login').className = `flex-1 py-2 text-sm font-medium rounded-lg transition-all ${!isRegister ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+    document.getElementById('tab-register').className = `flex-1 py-2 text-sm font-medium rounded-lg transition-all ${isRegister ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+    document.getElementById('name-field').classList.toggle('hidden', !isRegister);
+    document.getElementById('form-title').textContent = isRegister ? 'Buat Akun Baru' : 'Masuk ke Akun Anda';
+    document.getElementById('form-subtitle').textContent = isRegister ? 'Bergabung dengan Fast Print' : 'Selamat datang kembali!';
+    document.getElementById('submit-btn').textContent = isRegister ? 'Daftar Sekarang' : 'Masuk';
+    document.getElementById('error-msg').classList.add('hidden');
+  }
+  window.switchTab = switchTab;
+
+  document.getElementById('auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const errEl = document.getElementById('error-msg');
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const name = document.getElementById('name').value;
+    btn.disabled = true;
+    btn.textContent = 'Memproses...';
+    errEl.classList.add('hidden');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, action: mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Terjadi kesalahan';
+        errEl.classList.remove('hidden');
+      } else {
+        window.location.href = data.user?.role === 'admin' ? '/admin' : redirectTo;
+      }
+    } catch {
+      errEl.textContent = 'Gagal terhubung ke server';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = mode === 'login' ? 'Masuk' : 'Daftar Sekarang';
+    }
+  });
+</script>

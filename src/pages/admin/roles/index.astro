@@ -1,0 +1,231 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+// Extract search query
+const search = Astro.url.searchParams.get('q') || '';
+
+const roles = await prisma.role.findMany({
+  where: search ? {
+    OR: [
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } }
+    ]
+  } : undefined,
+  orderBy: { name: 'asc' }
+});
+
+// Calculate user count for each role
+const usersByRole = await prisma.appUser.groupBy({
+  by: ['role'],
+  _count: { id: true }
+});
+const userCounts = Object.fromEntries(usersByRole.map(r => [r.role, r._count.id]));
+---
+<AdminLayout title="Role Pengguna" currentPage="users">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-gray-900">Manajemen Role</h2>
+      <p class="text-sm text-gray-500">{roles.length} role tersedia</p>
+    </div>
+    <div class="flex gap-3">
+      <a href="/admin/users" class="btn-ghost text-sm">Kembali ke Pengguna</a>
+      <button id="add-role-btn" class="btn-primary text-sm">+ Tambah Role</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="p-4 border-b border-gray-100 bg-gray-50/50">
+      <form action="/admin/roles" method="GET" class="relative max-w-sm">
+        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input 
+          type="search" 
+          name="q" 
+          value={search} 
+          placeholder="Cari role..." 
+          class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+        />
+      </form>
+    </div>
+    
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nama Role</th>
+            <th>Deskripsi</th>
+            <th>Total Pengguna</th>
+            <th>Dibuat Pada</th>
+            <th class="text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {roles.map(r => (
+            <tr>
+              <td>
+                <span class={r.name === 'admin' ? 'badge-blue' : r.name === 'customer' ? 'badge-green' : 'badge-gray'}>
+                  {r.name}
+                </span>
+                {(r.name === 'admin' || r.name === 'customer') && (
+                  <span class="text-[10px] text-gray-400 ml-2">(Sistem)</span>
+                )}
+              </td>
+              <td class="text-sm text-gray-600">{r.description || '-'}</td>
+              <td>
+                <span class="font-medium text-sm text-gray-900">{userCounts[r.name] || 0}</span>
+                <span class="text-xs text-gray-500 ml-1">orang</span>
+              </td>
+              <td class="text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString('id-ID')}</td>
+              <td class="text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <button 
+                    class="edit-role-btn p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    data-id={r.id}
+                    data-name={r.name}
+                    data-desc={r.description || ''}
+                    title="Edit"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  </button>
+                  {r.name !== 'admin' && r.name !== 'customer' && (
+                    <button 
+                      class="delete-role-btn p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      data-id={r.id}
+                      title="Hapus"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+          {roles.length === 0 && (
+            <tr>
+              <td colspan="5" class="text-center py-8 text-sm text-gray-500">Tidak ada role yang sesuai dengan pencarian Anda.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Form -->
+  <div id="role-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 id="modal-title" class="font-bold text-gray-900 text-lg mb-4">Tambah Role</h3>
+      <form id="role-form" class="space-y-4">
+        <input type="hidden" id="role-id" name="id" />
+        
+        <div>
+          <label class="label">Nama Role *</label>
+          <input type="text" id="role-name" name="name" required class="input-field text-sm" placeholder="e.g. manager" />
+          <p class="text-xs text-gray-500 mt-1">Hanya huruf kecil, tanpa spasi.</p>
+        </div>
+        
+        <div>
+          <label class="label">Deskripsi</label>
+          <textarea id="role-desc" name="description" rows="3" class="input-field text-sm" placeholder="Deskripsi peran..."></textarea>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1 text-sm">Simpan</button>
+          <button type="button" id="close-role-modal" class="btn-ghost flex-1 text-sm">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const modal = document.getElementById('role-modal');
+  const form = document.getElementById('role-form') as HTMLFormElement;
+  const modalTitle = document.getElementById('modal-title');
+  const nameInput = document.getElementById('role-name') as HTMLInputElement;
+
+  // Auto-format role name
+  nameInput?.addEventListener('input', (e) => {
+    nameInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  });
+
+  const openModal = (isEdit = false, data: any = {}) => {
+    form.reset();
+    if (modalTitle) modalTitle.textContent = isEdit ? 'Edit Role' : 'Tambah Role';
+    
+    if (isEdit) {
+      (document.getElementById('role-id') as HTMLInputElement).value = data.id || '';
+      nameInput.value = data.name || '';
+      (document.getElementById('role-desc') as HTMLTextAreaElement).value = data.desc || '';
+      
+      // Disable editing name for core roles
+      if (data.name === 'admin' || data.name === 'customer') {
+        nameInput.readOnly = true;
+        nameInput.classList.add('bg-gray-100');
+      } else {
+        nameInput.readOnly = false;
+        nameInput.classList.remove('bg-gray-100');
+      }
+    } else {
+      (document.getElementById('role-id') as HTMLInputElement).value = '';
+      nameInput.readOnly = false;
+      nameInput.classList.remove('bg-gray-100');
+    }
+    
+    modal?.classList.remove('hidden');
+  };
+
+  document.getElementById('add-role-btn')?.addEventListener('click', () => openModal(false));
+  document.getElementById('close-role-modal')?.addEventListener('click', () => modal?.classList.add('hidden'));
+
+  document.querySelectorAll('.edit-role-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openModal(true, (btn as HTMLElement).dataset);
+    });
+  });
+
+  document.querySelectorAll('.delete-role-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Apakah Anda yakin ingin menghapus role ini?')) return;
+      
+      const id = (btn as HTMLElement).dataset.id;
+      try {
+        const res = await fetch(`/api/roles/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (res.ok) {
+          location.reload();
+        } else {
+          alert(data.error || 'Gagal menghapus role');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan');
+      }
+    });
+  });
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const id = data.id as string;
+    if (!id) delete data.id;
+
+    try {
+      const res = await fetch(id ? `/api/roles/${id}` : '/api/roles', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert(result.error || 'Gagal menyimpan role');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan pada server');
+    }
+  });
+</script>

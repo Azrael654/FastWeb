@@ -1,0 +1,238 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import { requireAuth } from "../../lib/auth";
+import prisma from "../../lib/prisma";
+
+const user = requireAuth(Astro.cookies);
+if (!user) {
+  return Astro.redirect("/login?redirect=/dashboard");
+}
+
+const dbUser = await prisma.appUser.findUnique({
+  where: { id: user.id },
+});
+
+const orders = await prisma.order.findMany({
+  where: {
+    OR: [{ userId: user.id }, { customerEmail: user.email }],
+  },
+  orderBy: { createdAt: "desc" },
+});
+
+// Format currency
+const formatPrice = (price: any) => {
+  return Number(price).toLocaleString("id-ID");
+};
+---
+
+<MainLayout title="Dasbor Pengguna – Fast Print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 font-display">Dasbor Saya</h1>
+      <p class="text-gray-500 mt-2">Selamat datang kembali, {dbUser?.name}</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Sidebar */}
+      <div class="lg:col-span-1 space-y-6">
+        <div class="card p-6 text-center">
+          <div
+            class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4"
+          >
+            <span class="text-2xl font-bold text-blue-700"
+              >{dbUser?.name.charAt(0).toUpperCase()}</span
+            >
+          </div>
+          <h2 class="font-bold text-gray-900 text-lg">{dbUser?.name}</h2>
+          <p class="text-sm text-gray-500 mb-4">{dbUser?.email}</p>
+
+          <form action="/api/auth/logout" method="POST">
+            <button
+              type="submit"
+              class="btn-ghost w-full justify-center text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              <svg
+                class="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                ></path></svg
+              >
+              Keluar
+            </button>
+          </form>
+        </div>
+
+        <div class="card p-6">
+          <h3 class="font-bold text-gray-900 mb-4">Informasi Kontak</h3>
+          <div class="space-y-3 text-sm">
+            <div>
+              <p class="text-gray-500">No. Telepon</p>
+              <p class="font-medium text-gray-900">{dbUser?.phone || "-"}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Alamat Default</p>
+              <p class="font-medium text-gray-900 line-clamp-2">
+                {dbUser?.address || "Belum diatur"}
+              </p>
+            </div>
+          </div>
+          <button
+            class="btn-ghost w-full mt-4 text-blue-600 hover:text-blue-700 text-sm"
+            >Edit Profil</button
+          >
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div class="lg:col-span-3">
+        <div class="card">
+          <div
+            class="p-6 border-b border-gray-100 flex items-center justify-between"
+          >
+            <h2 class="font-bold text-gray-900 text-lg">Riwayat Pesanan</h2>
+            <span class="badge-blue">{orders.length} Pesanan</span>
+          </div>
+
+          <div class="p-6">
+            {
+              orders.length === 0 ? (
+                <div class="text-center py-10">
+                  <svg
+                    class="w-16 h-16 text-gray-300 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                    />
+                  </svg>
+                  <p class="text-gray-500 font-medium mb-4">
+                    Belum ada pesanan.
+                  </p>
+                  <a href="/shop" class="btn-primary">
+                    Mulai Belanja
+                  </a>
+                </div>
+              ) : (
+                <div class="space-y-6">
+                  {orders.map((order: any) => (
+                    <div class="border border-gray-100 rounded-xl overflow-hidden">
+                      <div class="bg-gray-50 px-5 py-3 flex flex-wrap items-center justify-between gap-4 border-b border-gray-100">
+                        <div>
+                          <p class="text-xs text-gray-500">Tanggal Pesanan</p>
+                          <p class="text-sm font-semibold text-gray-900">
+                            {new Date(order.createdAt).toLocaleDateString(
+                              "id-ID",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              },
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-gray-500">Total Tagihan</p>
+                          <p class="text-sm font-bold text-blue-600">
+                            Rp {formatPrice(order.total)}
+                          </p>
+                        </div>
+                        <div>
+                          <p class="text-xs text-gray-500">Status</p>
+                          <span
+                            class={`badge mt-0.5 ${
+                              order.status === "pending"
+                                ? "badge-yellow"
+                                : order.status === "processing"
+                                  ? "badge-blue"
+                                  : order.status === "shipped"
+                                    ? "badge-blue"
+                                    : order.status === "delivered"
+                                      ? "badge-green"
+                                      : "badge-gray"
+                            }`}
+                          >
+                            {order.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-xs text-gray-500">ID Pesanan</p>
+                          <p class="text-sm font-mono text-gray-900">
+                            #{order.id.slice(-6).toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="p-5">
+                        <div class="space-y-3">
+                          {(Array.isArray(order.items) ? order.items : []).map(
+                            (item: any) => (
+                              <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                                  {item.image ? (
+                                    <img
+                                      src={item.image}
+                                      alt={item.name}
+                                      class="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div class="w-full h-full bg-blue-50" />
+                                  )}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                  <p class="text-sm font-semibold text-gray-900">
+                                    {item.name}
+                                  </p>
+                                  <p class="text-xs text-gray-500 mt-0.5">
+                                    Qty: {item.qty}{" "}
+                                    {item.dimension
+                                      ? `(Uk: ${item.dimension})`
+                                      : ""}
+                                  </p>
+                                </div>
+                                <div class="text-right">
+                                  <p class="text-sm font-semibold text-gray-900">
+                                    Rp {formatPrice(item.price * item.qty)}
+                                  </p>
+                                </div>
+                              </div>
+                            ),
+                          )}
+                        </div>
+
+                        {order.status === "pending" && (
+                          <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                            <p class="text-sm text-gray-600">
+                              Silakan selesaikan pembayaran Anda.
+                            </p>
+                            <a
+                              href={`https://wa.me/62812345678?text=Halo,%20saya%20ingin%20konfirmasi%20pembayaran%20untuk%20pesanan%20%23${order.id.slice(-6).toUpperCase()}`}
+                              target="_blank"
+                              class="btn-primary text-sm py-2"
+                            >
+                              Konfirmasi Pembayaran
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>

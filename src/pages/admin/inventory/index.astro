@@ -1,0 +1,132 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const materials = await prisma.rawMaterial.findMany({ orderBy: { name: 'asc' } });
+const lowStockMaterials = materials.filter(m => Number(m.stock) <= Number(m.minStock));
+---
+<AdminLayout title="Inventori" currentPage="inventory">
+  {lowStockMaterials.length > 0 && (
+    <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+      <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      <div>
+        <p class="text-sm font-semibold text-red-700">Stok Menipis!</p>
+        <p class="text-xs text-red-600 mt-0.5">{lowStockMaterials.map(m => m.name).join(', ')} perlu segera diisi.</p>
+      </div>
+    </div>
+  )}
+
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-bold text-gray-900">Bahan Baku</h2>
+    <button id="add-material-btn" class="btn-primary text-sm">+ Tambah Bahan</button>
+  </div>
+
+  <div class="card mb-6">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Nama</th><th>Kategori</th><th>Stok</th><th>Min Stok</th><th>Satuan</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {materials.map(m => {
+            const isLow = Number(m.minStock) >= Number(m.stock);
+            return (
+              <tr>
+                <td class="font-medium text-sm text-gray-900">{m.name}</td>
+                <td class="text-sm text-gray-600">{m.category || '-'}</td>
+                <td class={`font-bold text-sm ${isLow ? 'text-red-600' : 'text-gray-900'}`}>{Number(m.stock).toLocaleString('id')}</td>
+                <td class="text-sm text-gray-500">{Number(m.minStock).toLocaleString('id')}</td>
+                <td class="text-sm text-gray-600">{m.unit}</td>
+                <td>{isLow ? <span class="badge-red text-xs">Menipis</span> : <span class="badge-green text-xs">Aman</span>}</td>
+                <td>
+                  <button data-id={m.id} data-name={m.name} class="adjust-stock-btn text-blue-600 hover:underline text-xs font-medium">Sesuaikan</button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Material Modal -->
+  <div id="add-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Bahan Baku</h3>
+      <form id="add-form" class="space-y-4">
+        <div><label class="label">Nama</label><input name="name" required class="input-field" placeholder="Nama bahan baku" /></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Satuan</label><input name="unit" required class="input-field" placeholder="kg, rim, liter..." /></div>
+          <div><label class="label">Kategori</label><input name="category" class="input-field" placeholder="Kertas, Tinta..." /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Stok Awal</label><input name="stock" type="number" step="0.001" value="0" required class="input-field" /></div>
+          <div><label class="label">Min Stok</label><input name="minStock" type="number" step="0.001" value="0" required class="input-field" /></div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1">Simpan</button>
+          <button type="button" id="close-add-modal" class="btn-ghost flex-1">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Adjust Stock Modal -->
+  <div id="adjust-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-1">Sesuaikan Stok</h3>
+      <p id="adjust-name" class="text-sm text-gray-500 mb-4"></p>
+      <form id="adjust-form" class="space-y-4">
+        <input type="hidden" id="adjust-material-id" />
+        <div><label class="label">Tipe</label>
+          <select name="type" id="adjust-type" class="input-field">
+            <option value="In">Masuk (In)</option>
+            <option value="Out">Keluar (Out)</option>
+            <option value="Adjustment">Penyesuaian</option>
+          </select>
+        </div>
+        <div><label class="label">Jumlah</label><input name="quantity" type="number" step="0.001" min="0.001" required class="input-field" /></div>
+        <div><label class="label">Catatan</label><input name="note" class="input-field" placeholder="Opsional" /></div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1">Simpan</button>
+          <button type="button" id="close-adjust-modal" class="btn-ghost flex-1">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const addModal = document.getElementById('add-modal');
+  const adjustModal = document.getElementById('adjust-modal');
+  document.getElementById('add-material-btn')?.addEventListener('click', () => addModal?.classList.remove('hidden'));
+  document.getElementById('close-add-modal')?.addEventListener('click', () => addModal?.classList.add('hidden'));
+  document.getElementById('close-adjust-modal')?.addEventListener('click', () => adjustModal?.classList.add('hidden'));
+
+  document.getElementById('add-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const data = Object.fromEntries(new FormData(form));
+    const res = await fetch('/api/inventory/materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload();
+    else alert('Gagal menambah bahan');
+  });
+
+  document.querySelectorAll('.adjust-stock-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      (document.getElementById('adjust-material-id') as HTMLInputElement).value = (btn as HTMLElement).dataset.id || '';
+      const nameEl = document.getElementById('adjust-name');
+      if (nameEl) nameEl.textContent = (btn as HTMLElement).dataset.name || '';
+      adjustModal?.classList.remove('hidden');
+    });
+  });
+
+  document.getElementById('adjust-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const materialId = (document.getElementById('adjust-material-id') as HTMLInputElement).value;
+    const type = (document.getElementById('adjust-type') as HTMLSelectElement).value;
+    const fd = new FormData(form);
+    const res = await fetch('/api/inventory/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ materialId, type, quantity: fd.get('quantity'), note: fd.get('note') }) });
+    if (res.ok) location.reload();
+    else alert('Gagal menyesuaikan stok');
+  });
+</script>

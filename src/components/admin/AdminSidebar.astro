@@ -1,0 +1,95 @@
+---
+interface Props {
+  currentPage?: string;
+  user: { id: string; name: string; email: string; role: string };
+}
+const { currentPage = '', user } = Astro.props;
+
+const navItems = [
+  { href: '/admin', label: 'Overview', icon: 'grid', key: 'overview' },
+  { href: '/admin/statistics', label: 'Statistik', icon: 'bar-chart', key: 'statistics' },
+  { href: '/admin/orders', label: 'Pesanan', icon: 'shopping-cart', key: 'orders' },
+  { href: '/admin/products', label: 'Produk', icon: 'package', key: 'products' },
+  { href: '/admin/categories', label: 'Kategori', icon: 'tag', key: 'categories' },
+  { href: '/admin/inventory', label: 'Inventori', icon: 'archive', key: 'inventory' },
+  { href: '/admin/finance', label: 'Keuangan', icon: 'dollar-sign', key: 'finance' },
+  { href: '/admin/crm', label: 'CRM', icon: 'users', key: 'crm' },
+  { href: '/admin/blog', label: 'Blog', icon: 'file-text', key: 'blog' },
+  { href: '/admin/coupons', label: 'Kupon', icon: 'percent', key: 'coupons' },
+  { href: '/admin/users', label: 'Pengguna', icon: 'user', key: 'users' },
+  { href: '/admin/config', label: 'Konfigurasi', icon: 'settings', key: 'config' },
+];
+
+const icons: Record<string, string> = {
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  'bar-chart': 'M18 20V10M12 20V4M6 20v-6',
+  'shopping-cart': 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',
+  package: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z',
+  tag: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
+  archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+  'dollar-sign': 'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
+  users: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z',
+  'file-text': 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  percent: 'M19 5L5 19M6.5 4.5a2 2 0 100 4 2 2 0 000-4zM17.5 15.5a2 2 0 100 4 2 2 0 000-4z',
+  user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 3a4 4 0 100 8 4 4 0 000-8z',
+  settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
+};
+---
+
+<aside class="w-64 bg-white border-r border-gray-100 flex flex-col h-full shadow-sm">
+  <!-- Logo -->
+  <div class="px-5 py-4 border-b border-gray-100">
+    <a href="/" class="flex items-center gap-2.5">
+      <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2zM5 9V7a2 2 0 012-2h10a2 2 0 012 2v2M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="text-sm font-bold text-gray-900">Fast Print</div>
+        <div class="text-[10px] text-blue-600 font-medium">ADMIN PANEL</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+    {navItems.map(item => {
+      const isActive = currentPage === item.key;
+      return (
+        <a
+          href={item.href}
+          class={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+            isActive
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d={icons[item.icon]}/>
+          </svg>
+          {item.label}
+        </a>
+      );
+    })}
+  </nav>
+
+  <!-- User -->
+  <div class="px-3 py-4 border-t border-gray-100">
+    <div class="flex items-center gap-3 px-3 py-2">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+        <span class="text-xs font-bold text-blue-700">{user.name.charAt(0).toUpperCase()}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+        <p class="text-xs text-gray-500 truncate">{user.role}</p>
+      </div>
+    </div>
+    <form action="/api/auth/logout" method="POST" class="mt-2">
+      <button type="submit" class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Keluar
+      </button>
+    </form>
+  </div>
+</aside>
