@@ -82,6 +82,22 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
           <label for="is-featured" class="text-sm font-medium text-gray-700">Tampilkan sebagai produk unggulan di beranda</label>
         </div>
 
+        <!-- Custom Options Builder -->
+        <div class="border-t border-gray-100 pt-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-semibold text-gray-900 text-sm">Custom Fields / Pilihan Produk</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Tambahkan pilihan seperti Material, Finishing, Ukuran, dll.</p>
+            </div>
+            <button type="button" id="add-option-group" class="btn-ghost text-sm gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Tambah Grup
+            </button>
+          </div>
+          <div id="options-container" class="space-y-4"></div>
+          <p id="no-options-msg" class="text-sm text-gray-400 italic py-3">Belum ada custom field. Klik "Tambah Grup" untuk menambahkan.</p>
+        </div>
+
         <div class="pt-2 flex gap-3">
           <button type="submit" class="btn-primary px-8">Simpan Produk</button>
           <a href="/admin/products" class="btn-ghost">Batal</a>
@@ -106,6 +122,104 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     document.getElementById('unit-price-wrap')?.classList.toggle('hidden', !isArea);
   });
 
+  // --- Options Builder ---
+  let optionGroups: { type: string; options: { name: string; priceAdj: string; isDefault: boolean }[] }[] = [];
+
+  function renderGroups() {
+    const container = document.getElementById('options-container')!;
+    const msg = document.getElementById('no-options-msg')!;
+    msg.classList.toggle('hidden', optionGroups.length > 0);
+    container.innerHTML = '';
+    optionGroups.forEach((group, gi) => {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50';
+      groupEl.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <label class="label text-xs">Nama Grup (Tipe)</label>
+            <input type="text" placeholder="Contoh: Material, Finishing, Ukuran" value="${group.type}" data-gi="${gi}" data-field="type"
+              class="group-type-input input-field text-sm py-2" />
+          </div>
+          <button type="button" data-gi="${gi}" class="remove-group-btn mt-5 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+        <div class="space-y-2" id="opts-${gi}">
+          ${group.options.map((opt, oi) => `
+            <div class="flex items-center gap-2" data-oi="${oi}">
+              <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
+                class="opt-field input-field text-sm py-1.5 flex-1" />
+              <div class="relative">
+                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
+                <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
+                  class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
+              </div>
+              <label class="flex items-center gap-1 text-xs text-gray-600 cursor-pointer whitespace-nowrap">
+                <input type="checkbox" data-gi="${gi}" data-oi="${oi}" data-field="isDefault" class="opt-field w-3.5 h-3.5" ${opt.isDefault ? 'checked' : ''} />
+                Default
+              </label>
+              <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-300 hover:text-red-500 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>`).join('')}
+        </div>
+        <button type="button" data-gi="${gi}" class="add-opt-btn text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Tambah Pilihan
+        </button>
+      `;
+      container.appendChild(groupEl);
+    });
+
+    // Bind events
+    container.querySelectorAll('.group-type-input').forEach(el => {
+      el.addEventListener('input', (e) => {
+        const gi = parseInt((e.target as HTMLElement).dataset.gi!);
+        optionGroups[gi].type = (e.target as HTMLInputElement).value;
+      });
+    });
+    container.querySelectorAll('.opt-field').forEach(el => {
+      el.addEventListener('input', (e) => {
+        const gi = parseInt((e.target as HTMLElement).dataset.gi!);
+        const oi = parseInt((e.target as HTMLElement).dataset.oi!);
+        const field = (e.target as HTMLElement).dataset.field as any;
+        (optionGroups[gi].options[oi] as any)[field] = field === 'isDefault'
+          ? (e.target as HTMLInputElement).checked
+          : (e.target as HTMLInputElement).value;
+      });
+    });
+    container.querySelectorAll('.remove-group-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!);
+        optionGroups.splice(gi, 1);
+        renderGroups();
+      });
+    });
+    container.querySelectorAll('.add-opt-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!);
+        optionGroups[gi].options.push({ name: '', priceAdj: '0', isDefault: false });
+        renderGroups();
+      });
+    });
+    container.querySelectorAll('.remove-opt-btn').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!);
+        const oi = parseInt((e.currentTarget as HTMLElement).dataset.oi!);
+        optionGroups[gi].options.splice(oi, 1);
+        renderGroups();
+      });
+    });
+  }
+
+  document.getElementById('add-option-group')?.addEventListener('click', () => {
+    optionGroups.push({ type: '', options: [{ name: '', priceAdj: '0', isDefault: true }] });
+    renderGroups();
+  });
+
+  renderGroups();
+  // --- End Options Builder ---
+
   document.getElementById('product-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('form-msg')!;
@@ -116,6 +230,15 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     data.basePrice = parseFloat(data.basePrice) || data.price;
     if (data.unitPrice) data.unitPrice = parseFloat(data.unitPrice);
     if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    // Collect options from builder
+    const options = optionGroups
+      .filter(g => g.type.trim())
+      .flatMap(g => g.options
+        .filter(o => o.name.trim())
+        .map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault }))
+      );
+    data.options = options;
 
     const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (res.ok) {

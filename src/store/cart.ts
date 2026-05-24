@@ -9,6 +9,7 @@ export interface CartItem {
   qty: number;
   dimension: number;
   options: Record<string, { id: string; priceAdj: number }>;
+  designUrl?: string;
 }
 
 export const cartItems = persistentAtom<CartItem[]>('fp_cart', [], {

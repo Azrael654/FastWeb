@@ -38,7 +38,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   try {
     const body = await request.json();
-    const product = await prisma.product.create({ data: body });
+    const { options, ...productData } = body;
+
+    const product = await prisma.product.create({
+      data: {
+        ...productData,
+        ...(Array.isArray(options) && options.length > 0 ? {
+          productOptions: {
+            create: options.map((opt: any) => ({
+              type: opt.type,
+              name: opt.name,
+              value: opt.value || opt.name,
+              priceAdj: parseFloat(opt.priceAdj) || 0,
+              isDefault: opt.isDefault === true || opt.isDefault === 'true',
+            }))
+          }
+        } : {})
+      }
+    });
     return new Response(JSON.stringify(product), { status: 201 });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 400 });

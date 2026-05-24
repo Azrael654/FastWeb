@@ -62,8 +62,14 @@ export default function CartDrawer() {
                   <div>
                     <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {item.dimension ? `Ukuran: ${item.dimension}` : ''} 
+                      {item.dimension ? `Ukuran/Dimensi: ${item.dimension}` : ''} 
                     </p>
+                    {item.designUrl && (
+                      <a href={item.designUrl} target="_blank" className="text-[10px] text-blue-600 font-medium hover:underline flex items-center gap-1 mt-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                        Desain Terlampir
+                      </a>
+                    )}
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <p className="font-bold text-blue-600 text-sm">Rp {item.price.toLocaleString('id')}</p>

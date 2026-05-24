@@ -3,9 +3,19 @@ import MainLayout from '../layouts/MainLayout.astro';
 import { getSessionUser } from '../lib/auth';
 
 const user = getSessionUser(Astro.cookies);
-if (user) return Astro.redirect('/');
+const redirectParam = Astro.url.searchParams.get('redirect');
 
-const redirectTo = Astro.url.searchParams.get('redirect') || '/';
+if (user) {
+  if (redirectParam === '/admin' && user.role !== 'admin') {
+    // If they are redirected here from /admin but lack permissions, 
+    // it usually means their session role is stale. Force logout.
+    Astro.cookies.delete('fp_session', { path: '/' });
+    return Astro.redirect('/login?redirect=/admin');
+  }
+  return Astro.redirect(redirectParam || '/dashboard');
+}
+
+const redirectTo = redirectParam || '/dashboard';
 ---
 <MainLayout title="Masuk – Fast Print">
   <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 flex items-center justify-center py-12 px-4">
