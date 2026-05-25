@@ -12,6 +12,7 @@ if (statusFilter) where.status = statusFilter;
 if (search) where.OR = [
   { customerName: { contains: search, mode: 'insensitive' } },
   { customerEmail: { contains: search, mode: 'insensitive' } },
+  { id: { contains: search } },
 ];
 
 const [orders, total] = await Promise.all([
@@ -32,7 +33,7 @@ const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelle
     <form method="GET" class="flex flex-wrap gap-3 items-end">
       <div>
         <label class="label text-xs">Cari</label>
-        <input name="search" value={search} type="text" class="input-field text-sm py-2" placeholder="Nama / email pelanggan..." />
+        <input name="search" value={search} type="text" class="input-field text-sm py-2" placeholder="ID Pesanan / Nama / Email..." />
       </div>
       <div>
         <label class="label text-xs">Status</label>
