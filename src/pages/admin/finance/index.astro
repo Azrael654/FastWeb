@@ -2,13 +2,35 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
 
-const [accounts, transactions] = await Promise.all([
+const now = new Date();
+const startParam = Astro.url.searchParams.get('start');
+const endParam = Astro.url.searchParams.get('end');
+
+let filterStart: Date | undefined;
+let filterEnd: Date | undefined;
+
+if (startParam) {
+  filterStart = new Date(startParam + 'T00:00:00');
+  filterEnd = endParam ? new Date(endParam + 'T23:59:59') : new Date();
+}
+
+const txWhere = filterStart
+  ? { date: { gte: filterStart, ...(filterEnd ? { lte: filterEnd } : {}) } }
+  : {};
+
+const [accounts, transactions, categories] = await Promise.all([
   prisma.account.findMany({ orderBy: { name: 'asc' } }),
-  prisma.transaction.findMany({ include: { account: true }, orderBy: { date: 'desc' }, take: 30 }),
+  prisma.transaction.findMany({ where: txWhere, include: { account: true }, orderBy: { date: 'desc' }, take: 100 }),
+  prisma.transactionCategory.findMany({ orderBy: { name: 'asc' } })
 ]);
+
 const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-const monthIncome = transactions.filter(t => t.type === 'income' && new Date(t.date).getMonth() === new Date().getMonth()).reduce((s, t) => s + Number(t.amount), 0);
-const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t.date).getMonth() === new Date().getMonth()).reduce((s, t) => s + Number(t.amount), 0);
+const monthIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+const monthExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+const startInputVal = startParam || '';
+const endInputVal = endParam || '';
+const todayStr = now.toISOString().slice(0, 10);
 ---
 <AdminLayout title="Keuangan" currentPage="finance">
   <!-- Stats -->
@@ -99,9 +121,15 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
           <label class="label">Jumlah (Rp)</label>
           <input name="amount" type="number" min="1" required class="input-field text-sm" placeholder="50000" />
         </div>
-        <div>
-          <label class="label">Kategori</label>
-          <input name="category" class="input-field text-sm" placeholder="Operasional, Pembelian..." />
+        <div class="flex items-end gap-2">
+          <div class="flex-1">
+            <label class="label">Kategori</label>
+            <select name="category" class="input-field text-sm">
+              <option value="">-- Pilih Kategori --</option>
+              {categories.map(c => <option value={c.name}>{c.name} ({c.type === 'income' ? 'Pemasukan' : 'Pengeluaran'})</option>)}
+            </select>
+          </div>
+          <button type="button" id="manage-category-btn" class="btn-ghost shrink-0 px-3 py-2 text-sm">Atur</button>
         </div>
         <div>
           <label class="label">Deskripsi</label>
@@ -112,9 +140,22 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
     </div>
 
     <!-- Recent Transactions -->
-    <div class="card">
-      <div class="p-5 border-b border-gray-50">
+    <div class="card xl:col-span-2">
+      <div class="p-5 border-b border-gray-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 class="font-bold text-gray-900">Transaksi Terbaru</h2>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <form action="/admin/finance" method="GET" class="flex flex-col sm:flex-row items-center gap-2 flex-1">
+            <input type="date" name="start" value={startInputVal} max={todayStr} class="input-field text-xs py-1.5 px-2" />
+            <span class="text-gray-400 text-xs">sampai</span>
+            <input type="date" name="end" value={endInputVal} max={todayStr} class="input-field text-xs py-1.5 px-2" />
+            <button type="submit" class="btn-primary text-xs py-1.5 px-3">Filter</button>
+            {startInputVal && <a href="/admin/finance" class="btn-ghost text-xs py-1.5 px-2 text-gray-500">Reset</a>}
+          </form>
+          <a href={`/api/export-finance${startParam ? `?start=${startParam}&end=${endParam}` : ''}`} class="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1 border border-gray-200" download>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export CSV
+          </a>
+        </div>
       </div>
       <div class="divide-y divide-gray-50">
         {transactions.slice(0, 10).map(tx => (
@@ -157,6 +198,48 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
         <div id="account-balance-wrap"><label class="label">Saldo Awal (Rp)</label><input name="balance" id="account-balance" type="number" value="0" required class="input-field" /></div>
         <div class="flex gap-3"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-account-modal" class="btn-ghost flex-1">Batal</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Category Management Modal -->
+  <div id="category-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-900 text-lg">Kelola Kategori</h3>
+        <button id="close-category-modal" class="text-gray-400 hover:text-gray-600">&times;</button>
+      </div>
+      
+      <form id="category-form" class="flex items-end gap-2 mb-6">
+        <input type="hidden" name="id" id="cat-id" />
+        <div class="flex-1">
+          <label class="label text-xs">Nama Kategori</label>
+          <input name="name" id="cat-name" required class="input-field text-sm" placeholder="Misal: Gaji Karyawan" />
+        </div>
+        <div>
+          <label class="label text-xs">Tipe</label>
+          <select name="type" id="cat-type" class="input-field text-sm">
+            <option value="expense">Pengeluaran</option>
+            <option value="income">Pemasukan</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary shrink-0">Simpan</button>
+      </form>
+
+      <div class="space-y-2">
+        {categories.map(c => (
+          <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group">
+            <div>
+              <p class="font-medium text-sm text-gray-900">{c.name}</p>
+              <p class="text-xs text-gray-500">{c.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</p>
+            </div>
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              <button class="edit-cat-btn text-xs text-blue-600 hover:underline" data-id={c.id} data-name={c.name} data-type={c.type}>Edit</button>
+              <button class="delete-cat-btn text-xs text-red-600 hover:underline" data-id={c.id}>Hapus</button>
+            </div>
+          </div>
+        ))}
+        {categories.length === 0 && <p class="text-sm text-center text-gray-400">Belum ada kategori</p>}
+      </div>
     </div>
   </div>
 </AdminLayout>
@@ -217,7 +300,51 @@ const monthExpense = transactions.filter(t => t.type === 'expense' && new Date(t
     if (res.ok) location.reload(); else alert('Gagal menyimpan rekening');
   });
 
-  // Transaction Logic
+  // Category Logic
+  const catModal = document.getElementById('category-modal')!;
+  const catForm = document.getElementById('category-form') as HTMLFormElement;
+  const catIdInput = document.getElementById('cat-id') as HTMLInputElement;
+  
+  document.getElementById('manage-category-btn')?.addEventListener('click', () => {
+    catForm.reset();
+    catIdInput.value = '';
+    catModal.classList.remove('hidden');
+  });
+
+  document.getElementById('close-category-modal')?.addEventListener('click', () => {
+    catModal.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.edit-cat-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      catIdInput.value = el.dataset.id!;
+      (document.getElementById('cat-name') as HTMLInputElement).value = el.dataset.name!;
+      (document.getElementById('cat-type') as HTMLSelectElement).value = el.dataset.type!;
+    });
+  });
+
+  document.querySelectorAll('.delete-cat-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Yakin ingin menghapus kategori ini?')) return;
+      const el = e.currentTarget as HTMLElement;
+      const res = await fetch(`/api/finance/categories/${el.dataset.id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus kategori');
+    });
+  });
+
+  catForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(catForm));
+    const isEdit = !!data.id;
+    const url = isEdit ? `/api/finance/categories/${data.id}` : '/api/finance/categories';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menyimpan kategori');
+  });
+
+  // Transaction Form Validation & Submit
   const txType = document.getElementById('tx-type') as HTMLSelectElement;
   const txAccountLabel = document.getElementById('tx-account-label')!;
   const txTargetWrap = document.getElementById('tx-target-account-wrap')!;

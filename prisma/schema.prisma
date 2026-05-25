@@ -291,3 +291,13 @@ model GlobalField {
 
   @@map("global_fields")
 }
+
+model TransactionCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   @default("expense") // income | expense
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("transaction_categories")
+}
