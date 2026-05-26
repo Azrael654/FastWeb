@@ -487,15 +487,15 @@ if (product.image && !images.includes(product.image))
       }
     });
 
-    addToCartBtn?.addEventListener("click", () => {
+    addToCartBtn?.addEventListener("click", async () => {
       const dimEl = document.getElementById("dimension") as HTMLInputElement;
       const qtyEl = document.getElementById("qty") as HTMLInputElement;
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
       const dim = dimEl ? parseFloat(dimEl.value || "1") : 1;
       const price = calcPrice();
 
-      addToCart({
-        id: product.id,
+      const res = await addToCart({
+        productId: product.id,
         name: product.name,
         image: product.image,
         slug: product.slug,
@@ -504,8 +504,10 @@ if (product.image && !images.includes(product.image))
         dimension: dim,
         options: selectedOptions,
         designUrl: uploadedDesignUrl || undefined,
-      });
-      alert("Produk ditambahkan ke keranjang!");
+      } as any);
+      if (res && res.ok) {
+        alert("Produk ditambahkan ke keranjang!");
+      }
     });
   }
 </script>

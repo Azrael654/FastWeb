@@ -10,8 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 enum OrderStatus {
   pending
   processing
@@ -63,6 +61,7 @@ model AppUser {
 
   orders        Order[]
   notifications Notification[]
+  cartItems     CartItem[]
 
   @@map("app_users")
 }
@@ -320,4 +319,24 @@ model MaterialCategory {
   createdAt   DateTime @default(now())
 
   @@map("material_categories")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  name      String
+  slug      String
+  image     String?
+  price     Decimal  @db.Decimal(12, 2)
+  qty       Int      @default(1)
+  dimension Decimal  @default(1) @db.Decimal(12, 3)
+  options   Json     @default("{}")
+  designUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("cart_items")
 }

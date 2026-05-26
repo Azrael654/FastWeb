@@ -93,3 +93,10 @@ const icons: Record<string, string> = {
     </form>
   </div>
 </aside>
+
+<script>
+  // Clear cart on logout to prevent session bleed between users
+  document.querySelector('form[action="/api/auth/logout"]')?.addEventListener('submit', () => {
+    localStorage.removeItem('fp_cart');
+  });
+</script>

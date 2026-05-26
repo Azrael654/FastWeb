@@ -1,7 +1,8 @@
-import { persistentAtom } from '@nanostores/persistent';
+import { atom } from 'nanostores';
 
 export interface CartItem {
-  id: string;
+  id: string;         // DB CartItem id
+  productId: string;
   name: string;
   slug: string;
   image: string | null;
@@ -12,42 +13,59 @@ export interface CartItem {
   designUrl?: string;
 }
 
-export const cartItems = persistentAtom<CartItem[]>('fp_cart', [], {
-  encode: JSON.stringify,
-  decode: JSON.parse,
-});
+// In-memory atom for reactivity — populated by fetching /api/cart
+export const cartItems = atom<CartItem[]>([]);
+export const cartLoading = atom<boolean>(false);
 
-export function addToCart(item: CartItem) {
-  const current = cartItems.get();
-  const existingIndex = current.findIndex(
-    (c: CartItem) => c.id === item.id && JSON.stringify(c.options) === JSON.stringify(item.options)
-  );
-
-  if (existingIndex >= 0) {
-    const newItems = [...current];
-    newItems[existingIndex] = {
-      ...newItems[existingIndex],
-      qty: newItems[existingIndex].qty + item.qty,
-    };
-    cartItems.set(newItems);
-  } else {
-    cartItems.set([...current, item]);
+export async function loadCart() {
+  cartLoading.set(true);
+  try {
+    const res = await fetch('/api/cart');
+    if (res.ok) {
+      const data = await res.json();
+      cartItems.set(data);
+    }
+  } finally {
+    cartLoading.set(false);
   }
 }
 
-export function updateQty(index: number, newQty: number) {
+export async function addToCart(item: Omit<CartItem, 'id'> & { productId: string }) {
+  const res = await fetch('/api/cart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  if (res.status === 401) {
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    return;
+  }
+  if (res.ok) {
+    await loadCart();
+  }
+  return res;
+}
+
+export async function updateQty(cartItemId: string, newQty: number) {
   if (newQty < 1) return;
-  const current = [...cartItems.get()];
-  current[index] = { ...current[index], qty: newQty };
-  cartItems.set(current);
+  const res = await fetch(`/api/cart/${cartItemId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ qty: newQty }),
+  });
+  if (res.ok) {
+    cartItems.set(cartItems.get().map(i => i.id === cartItemId ? { ...i, qty: newQty } : i));
+  }
 }
 
-export function removeFromCart(index: number) {
-  const current = [...cartItems.get()];
-  current.splice(index, 1);
-  cartItems.set(current);
+export async function removeFromCart(cartItemId: string) {
+  const res = await fetch(`/api/cart/${cartItemId}`, { method: 'DELETE' });
+  if (res.ok) {
+    cartItems.set(cartItems.get().filter(i => i.id !== cartItemId));
+  }
 }
 
-export function clearCart() {
+export async function clearCart() {
+  await fetch('/api/cart', { method: 'DELETE' });
   cartItems.set([]);
 }

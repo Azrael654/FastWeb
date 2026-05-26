@@ -102,6 +102,7 @@ const redirectTo = redirectParam || '/dashboard';
         errEl.textContent = data.error || 'Terjadi kesalahan';
         errEl.classList.remove('hidden');
       } else {
+        localStorage.removeItem('fp_cart');
         window.location.href = data.user?.role === 'admin' ? '/admin' : redirectTo;
       }
     } catch {

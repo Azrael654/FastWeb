@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
-import { cartItems, clearCart } from '../store/cart';
+import { cartItems, clearCart, loadCart } from '../store/cart';
 
 export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { name: string; email: string; phone?: string; id: string } | null, paymentMethods?: any[] }) {
   const items = useStore(cartItems);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
+  useEffect(() => {
+    loadCart();
+  }, []);
+
   const [shippingMethod, setShippingMethod] = useState<'dikirim' | 'ambil'>('dikirim');
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState('');

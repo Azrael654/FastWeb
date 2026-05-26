@@ -80,4 +80,11 @@ const currentPath = Astro.url.pathname;
   document.getElementById('mobile-menu-btn')?.addEventListener('click', () =>
     document.getElementById('mobile-menu')?.classList.toggle('hidden')
   );
+
+  // Clear cart on logout so it doesn't bleed into the next user's session
+  document.querySelectorAll('form[action="/api/auth/logout"]').forEach(form => {
+    form.addEventListener('submit', () => {
+      localStorage.removeItem('fp_cart');
+    });
+  });
 </script>

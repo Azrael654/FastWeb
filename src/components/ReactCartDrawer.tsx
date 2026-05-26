@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@nanostores/react';
-import { cartItems, updateQty, removeFromCart } from '../store/cart';
+import { cartItems, cartLoading, loadCart, updateQty, removeFromCart } from '../store/cart';
 
 export default function CartDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const items = useStore(cartItems);
+  const loading = useStore(cartLoading);
 
   useEffect(() => {
     setMounted(true);
+    loadCart();
   }, []);
 
   const cartTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -35,7 +37,11 @@ export default function CartDrawer() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {items.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
               <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center">
                 <svg className="w-10 h-10 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
@@ -47,8 +53,8 @@ export default function CartDrawer() {
               <button onClick={() => setIsOpen(false)} className="btn-primary mt-4">Mulai Belanja</button>
             </div>
           ) : (
-            items.map((item, index) => (
-              <div key={`${item.id}-${index}`} className="flex gap-4 p-3 bg-white border border-gray-100 rounded-xl hover:border-blue-100 transition-colors group">
+            items.map((item) => (
+              <div key={item.id} className="flex gap-4 p-3 bg-white border border-gray-100 rounded-xl hover:border-blue-100 transition-colors group">
                 <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                   {item.image ? (
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
@@ -62,7 +68,7 @@ export default function CartDrawer() {
                   <div>
                     <h3 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {item.dimension ? `Ukuran/Dimensi: ${item.dimension}` : ''} 
+                      {item.dimension > 1 ? `Dimensi: ${item.dimension}` : ''}
                     </p>
                     {item.options && Object.keys(item.options).length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -83,13 +89,13 @@ export default function CartDrawer() {
                   <div className="flex items-center justify-between mt-2">
                     <p className="font-bold text-blue-600 text-sm">Rp {item.price.toLocaleString('id')}</p>
                     <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
-                      <button onClick={() => updateQty(index, item.qty - 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition-all" disabled={item.qty <= 1}>-</button>
+                      <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition-all" disabled={item.qty <= 1}>-</button>
                       <span className="text-xs font-semibold w-4 text-center">{item.qty}</span>
-                      <button onClick={() => updateQty(index, item.qty + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition-all">+</button>
+                      <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition-all">+</button>
                     </div>
                   </div>
                 </div>
-                <button onClick={() => removeFromCart(index)} className="text-gray-300 hover:text-red-500 transition-colors p-1 self-start">
+                <button onClick={() => removeFromCart(item.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1 self-start">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
