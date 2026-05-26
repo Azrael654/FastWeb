@@ -28,18 +28,35 @@ const { title = 'Admin', currentPage = '' } = Astro.props;
     <title>{title} – Fast Print Admin</title>
   </head>
   <body class="bg-gray-50 antialiased">
-    <div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen overflow-hidden relative w-full">
+      <!-- Mobile sidebar backdrop -->
+      <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
       <!-- Sidebar -->
       <AdminSidebar currentPage={currentPage} user={user} />
 
       <!-- Main Content -->
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AdminHeader user={user} title={title} />
-        <main class="flex-1 overflow-y-auto p-6">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6">
           <slot />
         </main>
       </div>
     </div>
+    
+    <script>
+      const sidebar = document.getElementById('admin-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const toggleBtn = document.getElementById('mobile-menu-btn');
+      
+      function toggleSidebar() {
+        sidebar?.classList.toggle('-translate-x-full');
+        backdrop?.classList.toggle('hidden');
+      }
+
+      toggleBtn?.addEventListener('click', toggleSidebar);
+      backdrop?.addEventListener('click', toggleSidebar);
+    </script>
   </body>
 </html>
 )}
