@@ -12,6 +12,7 @@ if (!product) {
   return Astro.redirect('/admin/products');
 }
 
+const existingImages = Array.isArray(product.imagesArray) ? product.imagesArray : (product.image ? [product.image] : []);
 const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
 
 // Group existing options by type for the builder
@@ -93,13 +94,22 @@ const existingOptionGroups = Object.entries(
         </div>
 
         <div>
-          <label class="label">Gambar Utama</label>
-          <div class="flex items-center gap-3">
-            {product.image && (
-              <img src={product.image} id="preview-image" class="w-16 h-16 object-cover rounded-lg border border-gray-200" />
-            )}
-            <input type="file" id="image-file" accept="image/*" class="input-field py-1.5" />
-            <input type="hidden" name="image" id="image-url" value={product.image || ''} />
+          <label class="label">Galeri Gambar Produk</label>
+          <div class="space-y-3">
+            <div id="image-gallery" class="flex flex-wrap gap-3">
+              <!-- Images rendered by JS -->
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="cursor-pointer bg-white border border-gray-200 hover:border-blue-500 text-gray-700 py-1.5 px-4 rounded-lg text-sm transition-colors shadow-sm inline-flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Tambah Gambar
+                <input type="file" id="image-file" accept="image/*" multiple class="hidden" />
+              </label>
+              <span id="uploading-msg" class="text-xs text-blue-600 hidden font-medium flex items-center gap-1.5">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                Mengunggah...
+              </span>
+            </div>
           </div>
         </div>
 
@@ -135,6 +145,7 @@ const existingOptionGroups = Object.entries(
 
 <!-- Pass existing options data to client script -->
 <div id="options-initial-data" data-groups={JSON.stringify(existingOptionGroups)} class="hidden"></div>
+<div id="images-initial-data" data-images={JSON.stringify(existingImages)} class="hidden"></div>
 
 <script>
   const nameInput = document.getElementById('prod-name') as HTMLInputElement;
@@ -153,6 +164,69 @@ const existingOptionGroups = Object.entries(
     document.getElementById('pricing-unit-wrap')?.classList.toggle('hidden', !isArea);
     document.getElementById('unit-price-wrap')?.classList.toggle('hidden', !isArea);
   });
+
+  // --- Image Gallery Logic ---
+  let imagesArray: string[] = JSON.parse(document.getElementById('images-initial-data')?.dataset.images || '[]');
+  const galleryContainer = document.getElementById('image-gallery')!;
+  const imageInput = document.getElementById('image-file') as HTMLInputElement;
+  const uploadingMsg = document.getElementById('uploading-msg')!;
+
+  function renderGallery() {
+    galleryContainer.innerHTML = '';
+    if (imagesArray.length === 0) {
+      galleryContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Belum ada gambar</span>';
+      return;
+    }
+    imagesArray.forEach((url, idx) => {
+      const div = document.createElement('div');
+      div.className = 'relative w-20 h-20 group rounded-lg overflow-hidden border border-gray-200 bg-gray-50';
+      div.innerHTML = `
+        <img src="${url}" class="w-full h-full object-cover" />
+        ${idx === 0 ? '<span class="absolute top-0 left-0 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-br-md font-medium z-10">Utama</span>' : ''}
+        <button type="button" data-idx="${idx}" class="remove-img-btn absolute top-1 right-1 w-5 h-5 bg-white/90 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      `;
+      galleryContainer.appendChild(div);
+    });
+    galleryContainer.querySelectorAll('.remove-img-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt((e.currentTarget as HTMLElement).dataset.idx!);
+        imagesArray.splice(idx, 1);
+        renderGallery();
+      });
+    });
+  }
+
+  imageInput?.addEventListener('change', async () => {
+    if (!imageInput.files || imageInput.files.length === 0) return;
+    
+    uploadingMsg.classList.remove('hidden');
+    imageInput.disabled = true;
+    
+    try {
+      const files = Array.from(imageInput.files);
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        if (res.ok) {
+          const data = await res.json();
+          imagesArray.push(data.url);
+        }
+      }
+      renderGallery();
+    } catch (err) {
+      alert('Gagal mengunggah beberapa gambar');
+    } finally {
+      imageInput.value = '';
+      imageInput.disabled = false;
+      uploadingMsg.classList.add('hidden');
+    }
+  });
+
+  renderGallery();
+  // --- End Image Gallery Logic ---
 
   // --- Options Builder (pre-populated from existing data) ---
   let optionGroups: { type: string; options: { name: string; priceAdj: string; isDefault: boolean }[] }[] =
@@ -241,19 +315,8 @@ const existingOptionGroups = Object.entries(
       const fd = new FormData(form);
       const data: any = Object.fromEntries(fd);
       
-      // Handle image upload if a file is selected
-      const fileInput = document.getElementById('image-file') as HTMLInputElement;
-      if (fileInput.files && fileInput.files.length > 0) {
-        const uploadFd = new FormData();
-        uploadFd.append('file', fileInput.files[0]);
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          data.image = uploadData.url;
-        } else {
-          throw new Error('Gagal mengunggah gambar');
-        }
-      }
+      data.imagesArray = imagesArray;
+      data.image = imagesArray.length > 0 ? imagesArray[0] : null;
 
       data.isFeatured = fd.get('isFeatured') === 'true';
       data.price = parseFloat(data.price) || 0;
