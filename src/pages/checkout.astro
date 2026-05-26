@@ -2,8 +2,13 @@
 import MainLayout from '../layouts/MainLayout.astro';
 import ReactCheckoutForm from '../components/ReactCheckoutForm';
 import { getSessionUser } from '../lib/auth';
+import prisma from '../lib/prisma';
 
 const user = getSessionUser(Astro.cookies);
+const paymentMethods = await prisma.paymentMethod.findMany({ 
+  where: { isActive: true }, 
+  orderBy: { name: 'asc' } 
+});
 ---
 <MainLayout title="Checkout – Fast Print">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -12,6 +17,6 @@ const user = getSessionUser(Astro.cookies);
       <p class="section-subtitle">Lengkapi detail pengiriman untuk menyelesaikan pesanan</p>
     </div>
 
-    <ReactCheckoutForm client:only="react" user={user} />
+    <ReactCheckoutForm client:only="react" user={user} paymentMethods={paymentMethods} />
   </div>
 </MainLayout>

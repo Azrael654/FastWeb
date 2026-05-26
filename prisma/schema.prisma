@@ -301,3 +301,14 @@ model TransactionCategory {
 
   @@map("transaction_categories")
 }
+
+model PaymentMethod {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  accountNumber String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@map("payment_methods")
+}

@@ -93,8 +93,14 @@ const existingOptionGroups = Object.entries(
         </div>
 
         <div>
-          <label class="label">URL Gambar Utama</label>
-          <input name="image" type="url" value={product.image || ''} class="input-field" placeholder="https://..." />
+          <label class="label">Gambar Utama</label>
+          <div class="flex items-center gap-3">
+            {product.image && (
+              <img src={product.image} id="preview-image" class="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+            )}
+            <input type="file" id="image-file" accept="image/*" class="input-field py-1.5" />
+            <input type="hidden" name="image" id="image-url" value={product.image || ''} />
+          </div>
         </div>
 
         <div class="flex items-center gap-3">
@@ -226,29 +232,56 @@ const existingOptionGroups = Object.entries(
   document.getElementById('product-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const msg = document.getElementById('form-msg')!;
-    const fd = new FormData(e.target as HTMLFormElement);
-    const data: any = Object.fromEntries(fd);
-    data.isFeatured = fd.get('isFeatured') === 'true';
-    data.price = parseFloat(data.price) || 0;
-    data.basePrice = parseFloat(data.basePrice) || data.price;
-    if (data.unitPrice) data.unitPrice = parseFloat(data.unitPrice);
-    if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const id = data.id;
+    const form = e.target as HTMLFormElement;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
 
-    // Collect options from builder
-    const options = optionGroups
-      .filter(g => g.type.trim())
-      .flatMap(g => g.options.filter(o => o.name.trim()).map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault })));
-    data.options = options;
+    try {
+      const fd = new FormData(form);
+      const data: any = Object.fromEntries(fd);
+      
+      // Handle image upload if a file is selected
+      const fileInput = document.getElementById('image-file') as HTMLInputElement;
+      if (fileInput.files && fileInput.files.length > 0) {
+        const uploadFd = new FormData();
+        uploadFd.append('file', fileInput.files[0]);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          data.image = uploadData.url;
+        } else {
+          throw new Error('Gagal mengunggah gambar');
+        }
+      }
 
-    const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) {
-      window.location.href = '/admin/products';
-    } else {
-      const err = await res.json();
-      msg.textContent = err.error || 'Gagal menyimpan produk';
+      data.isFeatured = fd.get('isFeatured') === 'true';
+      data.price = parseFloat(data.price) || 0;
+      data.basePrice = parseFloat(data.basePrice) || data.price;
+      if (data.unitPrice) data.unitPrice = parseFloat(data.unitPrice);
+      if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const id = data.id;
+
+      // Collect options from builder
+      const options = optionGroups
+        .filter(g => g.type.trim())
+        .flatMap(g => g.options.filter(o => o.name.trim()).map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault })));
+      data.options = options;
+
+      const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (res.ok) {
+        window.location.href = '/admin/products';
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal menyimpan produk');
+      }
+    } catch (error: any) {
+      msg.textContent = error.message || 'Terjadi kesalahan saat menyimpan produk';
       msg.className = 'mb-4 p-3 rounded-lg text-sm bg-red-50 text-red-700';
       msg.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Simpan Perubahan';
     }
   });
 </script>

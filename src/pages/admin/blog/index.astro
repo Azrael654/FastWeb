@@ -55,7 +55,13 @@ const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
         </div>
         <div><label class="label">Ringkasan</label><textarea name="excerpt" class="input-field text-sm" rows="2"></textarea></div>
         <div><label class="label">Konten *</label><textarea name="content" required class="input-field text-sm font-mono" rows="8" placeholder="Tulis konten dalam Markdown..."></textarea></div>
-        <div><label class="label">URL Gambar</label><input name="image" type="url" class="input-field text-sm" placeholder="https://..." /></div>
+        <div>
+          <label class="label">Gambar</label>
+          <div class="flex flex-col gap-2">
+            <input type="file" id="image-file" accept="image/*" class="input-field text-sm py-1.5" />
+            <input type="hidden" name="image" id="image-url" />
+          </div>
+        </div>
         <div class="flex items-center gap-2">
           <input type="checkbox" name="published" id="published" value="true" class="w-4 h-4 text-blue-600 rounded" />
           <label for="published" class="text-sm font-medium text-gray-700">Publikasikan sekarang</label>
@@ -80,12 +86,44 @@ const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
 
   document.getElementById('post-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target as HTMLFormElement);
-    const data: any = Object.fromEntries(fd);
-    data.published = fd.get('published') === 'true';
-    if (!data.slug) data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const res = await fetch('/api/blog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) location.reload(); else { const err = await res.json(); alert(err.error || 'Gagal menyimpan'); }
+    const form = e.target as HTMLFormElement;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+
+    try {
+      const fd = new FormData(form);
+      const data: any = Object.fromEntries(fd);
+      
+      const fileInput = document.getElementById('image-file') as HTMLInputElement;
+      if (fileInput.files && fileInput.files.length > 0) {
+        const uploadFd = new FormData();
+        uploadFd.append('file', fileInput.files[0]);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          data.image = uploadData.url;
+        } else {
+          throw new Error('Gagal mengunggah gambar');
+        }
+      }
+
+      data.published = fd.get('published') === 'true';
+      if (!data.slug) data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
+      const res = await fetch('/api/blog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (res.ok) {
+        location.reload(); 
+      } else { 
+        const err = await res.json(); 
+        throw new Error(err.error || 'Gagal menyimpan'); 
+      }
+    } catch (error: any) {
+      alert(error.message || 'Terjadi kesalahan');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Simpan';
+    }
   });
 
   document.querySelectorAll('.delete-post').forEach(btn => {

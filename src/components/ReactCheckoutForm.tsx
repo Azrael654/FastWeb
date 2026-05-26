@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { cartItems, clearCart } from '../store/cart';
 
-export default function CheckoutForm({ user }: { user?: { name: string; email: string; phone?: string; id: string } | null }) {
+export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { name: string; email: string; phone?: string; id: string } | null, paymentMethods?: any[] }) {
   const items = useStore(cartItems);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -144,20 +144,21 @@ export default function CheckoutForm({ user }: { user?: { name: string; email: s
         {/* Payment Info */}
         <div className="card p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-5">Metode Pembayaran</h2>
-          <div className="space-y-3">
-            {[
-              { id: 'bca', name: 'Transfer BCA (Dicek Manual)', desc: 'No. Rekening akan diinformasikan setelah checkout.' },
-              { id: 'mandiri', name: 'Transfer Mandiri (Dicek Manual)', desc: 'No. Rekening akan diinformasikan setelah checkout.' },
-            ].map(m => (
-              <label key={m.id} className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 transition-colors">
-                <input type="radio" name="paymentMethod" value={m.id} defaultChecked={m.id === 'bca'} className="mt-1 w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="font-semibold text-gray-900">{m.name}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{m.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
+          {paymentMethods.length === 0 ? (
+            <p className="text-sm text-gray-500">Belum ada metode pembayaran yang aktif.</p>
+          ) : (
+            <div className="space-y-3">
+              {paymentMethods.map((m: any, idx: number) => (
+                <label key={m.id} className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 transition-colors">
+                  <input type="radio" name="paymentMethod" value={m.name} defaultChecked={idx === 0} className="mt-1 w-4 h-4 text-blue-600" required />
+                  <div>
+                    <p className="font-semibold text-gray-900">{m.name}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">{m.accountNumber ? `${m.accountNumber} ` : ''}{m.description ? `(${m.description})` : ''}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

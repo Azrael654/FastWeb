@@ -1,5 +1,8 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const paymentMethods = await prisma.paymentMethod.findMany({ orderBy: { name: 'asc' } });
 ---
 <AdminLayout title="Konfigurasi" currentPage="config">
   <div class="max-w-2xl space-y-6">
@@ -21,23 +24,28 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     </div>
 
     <div class="card p-6">
-      <h2 class="font-bold text-gray-900 text-lg mb-5">Metode Pembayaran</h2>
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="font-bold text-gray-900 text-lg">Metode Pembayaran</h2>
+        <button id="add-pm-btn" class="btn-primary text-xs py-1.5 px-3">+ Tambah</button>
+      </div>
       <div class="space-y-3">
-        {[
-          { label: 'Transfer Bank BCA', account: '1234567890 a/n Fast Print' },
-          { label: 'Transfer Bank Mandiri', account: '0987654321 a/n Fast Print' },
-          { label: 'QRIS / GoPay / OVO', account: 'Scan QR di kasir' },
-        ].map(m => (
-          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        {paymentMethods.map(m => (
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl group relative">
             <div>
-              <p class="text-sm font-semibold text-gray-900">{m.label}</p>
-              <p class="text-xs text-gray-500">{m.account}</p>
+              <p class="text-sm font-semibold text-gray-900">{m.name}</p>
+              <p class="text-xs text-gray-500">{m.accountNumber || '-'} {m.description ? `(${m.description})` : ''}</p>
             </div>
-            <span class="badge-green text-xs">Aktif</span>
+            <div class="flex items-center gap-3">
+              <span class={`text-xs px-2 py-1 rounded-md ${m.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{m.isActive ? 'Aktif' : 'Non-aktif'}</span>
+              <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                <button class="edit-pm-btn text-xs text-blue-600 hover:underline" data-id={m.id} data-name={m.name} data-desc={m.description || ''} data-acc={m.accountNumber || ''} data-active={m.isActive ? 'true' : 'false'}>Edit</button>
+                <button class="delete-pm-btn text-xs text-red-600 hover:underline" data-id={m.id}>Hapus</button>
+              </div>
+            </div>
           </div>
         ))}
+        {paymentMethods.length === 0 && <p class="text-sm text-gray-400 text-center py-4">Belum ada metode pembayaran</p>}
       </div>
-      <p class="text-xs text-gray-400 mt-3">Kelola metode pembayaran melalui database atau konfigurasi lingkungan.</p>
     </div>
 
     <div class="card p-6">
@@ -56,10 +64,83 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       </div>
     </div>
   </div>
+
+  <!-- Payment Method Modal -->
+  <div id="pm-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <h3 id="pm-modal-title" class="font-bold text-gray-900 text-lg mb-4">Tambah Metode Pembayaran</h3>
+      <form id="pm-form" class="space-y-4">
+        <input type="hidden" name="id" id="pm-id" />
+        <div><label class="label">Nama Metode</label><input name="name" id="pm-name" required class="input-field" placeholder="Transfer BCA, QRIS..." /></div>
+        <div><label class="label">No. Rekening / Info</label><input name="accountNumber" id="pm-acc" class="input-field" placeholder="1234567890" /></div>
+        <div><label class="label">Deskripsi Tambahan</label><input name="description" id="pm-desc" class="input-field" placeholder="a/n Fast Print" /></div>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="checkbox" name="isActive" id="pm-active" class="w-4 h-4 text-blue-600 rounded border-gray-300" checked />
+          <label for="pm-active" class="text-sm text-gray-700 font-medium">Metode Aktif</label>
+        </div>
+        <div class="flex gap-3 mt-4"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-pm-modal" class="btn-ghost flex-1">Batal</button></div>
+      </form>
+    </div>
+  </div>
 </AdminLayout>
 <script>
+  // Store Config Logic
   document.getElementById('config-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
     alert('Konfigurasi tersimpan! (Implementasi penyimpanan ke DB dapat ditambahkan)');
+  });
+
+  // Payment Method Logic
+  const pmModal = document.getElementById('pm-modal')!;
+  const pmForm = document.getElementById('pm-form') as HTMLFormElement;
+  const pmIdInput = document.getElementById('pm-id') as HTMLInputElement;
+  const pmTitle = document.getElementById('pm-modal-title')!;
+
+  document.getElementById('add-pm-btn')?.addEventListener('click', () => {
+    pmForm.reset();
+    pmIdInput.value = '';
+    pmTitle.textContent = 'Tambah Metode Pembayaran';
+    (document.getElementById('pm-active') as HTMLInputElement).checked = true;
+    pmModal.classList.remove('hidden');
+  });
+
+  document.getElementById('close-pm-modal')?.addEventListener('click', () => {
+    pmModal.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.edit-pm-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      pmIdInput.value = el.dataset.id!;
+      (document.getElementById('pm-name') as HTMLInputElement).value = el.dataset.name!;
+      (document.getElementById('pm-acc') as HTMLInputElement).value = el.dataset.acc!;
+      (document.getElementById('pm-desc') as HTMLInputElement).value = el.dataset.desc!;
+      (document.getElementById('pm-active') as HTMLInputElement).checked = el.dataset.active === 'true';
+      pmTitle.textContent = 'Edit Metode Pembayaran';
+      pmModal.classList.remove('hidden');
+    });
+  });
+
+  document.querySelectorAll('.delete-pm-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Yakin ingin menghapus metode pembayaran ini?')) return;
+      const el = e.currentTarget as HTMLElement;
+      const res = await fetch(`/api/payment-methods/${el.dataset.id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus metode pembayaran');
+    });
+  });
+
+  pmForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(pmForm));
+    // Checkbox edge case (if unchecked it doesn't appear in FormData)
+    data.isActive = (document.getElementById('pm-active') as HTMLInputElement).checked ? 'true' : 'false';
+    
+    const isEdit = !!data.id;
+    const url = isEdit ? `/api/payment-methods/${data.id}` : '/api/payment-methods';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menyimpan metode pembayaran');
   });
 </script>
