@@ -312,3 +312,12 @@ model PaymentMethod {
 
   @@map("payment_methods")
 }
+
+model MaterialCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("material_categories")
+}

@@ -1,0 +1,106 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const startParam = Astro.url.searchParams.get('start');
+const endParam = Astro.url.searchParams.get('end');
+const materialParam = Astro.url.searchParams.get('materialId');
+
+let filterStart: Date | undefined;
+let filterEnd: Date | undefined;
+
+if (startParam) {
+  filterStart = new Date(startParam + 'T00:00:00');
+  filterEnd = endParam ? new Date(endParam + 'T23:59:59') : new Date();
+}
+
+const whereClause: any = {};
+if (filterStart) {
+  whereClause.date = { gte: filterStart, ...(filterEnd ? { lte: filterEnd } : {}) };
+}
+if (materialParam) {
+  whereClause.materialId = materialParam;
+}
+
+const history = await prisma.stockHistory.findMany({
+  where: whereClause,
+  include: { material: true },
+  orderBy: { date: 'desc' }
+});
+
+const materials = await prisma.rawMaterial.findMany({ orderBy: { name: 'asc' } });
+const todayStr = new Date().toISOString().slice(0, 10);
+---
+<AdminLayout title="Riwayat Stok" currentPage="inventory">
+  <div class="flex items-center gap-3 mb-5">
+    <a href="/admin/inventory" class="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+      <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h2 class="text-lg font-bold text-gray-900">Semua Riwayat Stok</h2>
+      <p class="text-sm text-gray-500">{history.length} rekaman ditemukan</p>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-6">
+    <form action="/admin/inventory/history" method="GET" class="flex flex-col sm:flex-row items-end gap-4">
+      <div class="flex-1 w-full">
+        <label class="label text-xs">Pilih Bahan Baku</label>
+        <select name="materialId" class="input-field text-sm">
+          <option value="">Semua Bahan</option>
+          {materials.map(m => <option value={m.id} selected={m.id === materialParam}>{m.name}</option>)}
+        </select>
+      </div>
+      <div class="flex-1 w-full">
+        <label class="label text-xs">Dari Tanggal</label>
+        <input type="date" name="start" value={startParam || ''} max={todayStr} class="input-field text-sm" />
+      </div>
+      <div class="flex-1 w-full">
+        <label class="label text-xs">Sampai Tanggal</label>
+        <input type="date" name="end" value={endParam || ''} max={todayStr} class="input-field text-sm" />
+      </div>
+      <div class="flex gap-2 w-full sm:w-auto">
+        <button type="submit" class="btn-primary text-sm flex-1 sm:flex-none">Filter</button>
+        {(startParam || materialParam) && <a href="/admin/inventory/history" class="btn-ghost text-sm flex items-center justify-center">Reset</a>}
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Bahan Baku</th>
+            <th>Tipe</th>
+            <th>Jumlah</th>
+            <th>Sisa Stok</th>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {history.map(h => (
+            <tr>
+              <td class="text-sm text-gray-600">{new Date(h.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+              <td class="font-medium text-sm text-gray-900">{h.material?.name || '-'}</td>
+              <td>
+                <span class={`text-xs font-bold px-2 py-1 rounded-md ${h.type === 'In' ? 'bg-green-100 text-green-700' : h.type === 'Out' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                  {h.type}
+                </span>
+              </td>
+              <td class={`font-bold text-sm ${h.type === 'In' ? 'text-green-600' : h.type === 'Out' ? 'text-red-600' : 'text-gray-900'}`}>
+                {h.type === 'In' ? '+' : h.type === 'Out' ? '-' : ''}{Number(h.quantity).toLocaleString('id')} {h.material?.unit}
+              </td>
+              <td class="text-sm font-medium text-gray-900">{Number(h.currentStock).toLocaleString('id')} {h.material?.unit}</td>
+              <td class="text-sm text-gray-500 italic">{h.note || '-'}</td>
+            </tr>
+          ))}
+          {history.length === 0 && (
+            <tr><td colspan="6" class="text-center py-8 text-gray-400">Tidak ada riwayat yang sesuai dengan filter.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>
