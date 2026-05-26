@@ -83,9 +83,11 @@ const formatPrice = (price: any) => {
             </div>
           </div>
           <button
+            id="edit-profile-btn"
             class="btn-ghost w-full mt-4 text-blue-600 hover:text-blue-700 text-sm"
-            >Edit Profil</button
           >
+            Edit Profil
+          </button>
         </div>
       </div>
 
@@ -211,14 +213,20 @@ const formatPrice = (price: any) => {
                         </div>
 
                         {order.status === "pending" && (
-                          <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-                            <p class="text-sm text-gray-600">
+                          <div class="mt-5 pt-4 border-t border-gray-100 flex items-center gap-3 justify-end">
+                            <p class="text-sm text-gray-600 flex-1">
                               Silakan selesaikan pembayaran Anda.
                             </p>
+                            <button
+                              data-id={order.id}
+                              class="cancel-order-btn btn-ghost text-red-600 hover:bg-red-50 text-sm py-2 px-4"
+                            >
+                              Batalkan
+                            </button>
                             <a
                               href={`https://wa.me/62812345678?text=Halo,%20saya%20ingin%20konfirmasi%20pembayaran%20untuk%20pesanan%20%23${order.id.slice(-6).toUpperCase()}`}
                               target="_blank"
-                              class="btn-primary text-sm py-2"
+                              class="btn-primary text-sm py-2 px-4"
                             >
                               Konfirmasi Pembayaran
                             </a>
@@ -235,4 +243,99 @@ const formatPrice = (price: any) => {
       </div>
     </div>
   </div>
+
+  <!-- Edit Profile Modal -->
+  <div id="profile-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <h3 class="font-bold text-gray-900 text-lg mb-4">Edit Profil</h3>
+      <form id="profile-form" class="space-y-4">
+        <div>
+          <label class="label">Nama Lengkap *</label>
+          <input name="name" id="pf-name" required value={dbUser?.name} class="input-field" />
+        </div>
+        <div>
+          <label class="label">No. Telepon</label>
+          <input name="phone" id="pf-phone" value={dbUser?.phone || ''} class="input-field" placeholder="0812..." />
+        </div>
+        <div>
+          <label class="label">Alamat Lengkap</label>
+          <textarea name="address" id="pf-address" class="input-field" rows="3" placeholder="Jl. ...">{dbUser?.address || ''}</textarea>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1">Simpan</button>
+          <button type="button" id="close-profile-modal" class="btn-ghost flex-1">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </MainLayout>
+
+<script>
+  // Edit Profile Logic
+  const profileModal = document.getElementById('profile-modal');
+  const editProfileBtn = document.getElementById('edit-profile-btn');
+  const closeProfileBtn = document.getElementById('close-profile-modal');
+  const profileForm = document.getElementById('profile-form') as HTMLFormElement;
+
+  editProfileBtn?.addEventListener('click', () => profileModal?.classList.remove('hidden'));
+  closeProfileBtn?.addEventListener('click', () => profileModal?.classList.add('hidden'));
+
+  profileForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = profileForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+
+    const fd = new FormData(profileForm);
+    const data = Object.fromEntries(fd);
+
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menyimpan profil');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Simpan';
+    }
+  });
+
+  // Cancel Order Logic
+  document.querySelectorAll('.cancel-order-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) return;
+      
+      const el = e.currentTarget as HTMLButtonElement;
+      const orderId = el.dataset.id;
+      el.disabled = true;
+      el.textContent = 'Membatalkan...';
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}/cancel`, {
+          method: 'POST'
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Gagal membatalkan pesanan');
+          el.disabled = false;
+          el.textContent = 'Batalkan';
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan jaringan');
+        el.disabled = false;
+        el.textContent = 'Batalkan';
+      }
+    });
+  });
+</script>
