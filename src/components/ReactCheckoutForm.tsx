@@ -14,10 +14,46 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
   const [shippingMethod, setShippingMethod] = useState<'dikirim' | 'ambil'>('dikirim');
   const [discount, setDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState('');
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
   
   const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
   const shippingFee = shippingMethod === 'dikirim' ? 15000 : 0; // Flat rate 15k for courier, 0 for pickup
   const total = subtotal + shippingFee - discount;
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput, subtotal })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDiscount(data.discount);
+        setCouponCode(data.code);
+        setCouponInput('');
+      } else {
+        setCouponError(data.error);
+        setDiscount(0);
+        setCouponCode('');
+      }
+    } catch (err) {
+      setCouponError('Terjadi kesalahan');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setDiscount(0);
+    setCouponCode('');
+    setCouponError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -198,6 +234,37 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Punya Kode Kupon?</h3>
+            {couponCode ? (
+              <div className="flex items-center justify-between bg-green-50 text-green-700 px-3 py-2 rounded-lg border border-green-200 text-sm">
+                <span className="font-bold tracking-wider">{couponCode}</span>
+                <button type="button" onClick={handleRemoveCoupon} className="text-green-600 hover:text-green-800 font-medium text-xs">Hapus</button>
+              </div>
+            ) : (
+              <div>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Masukkan kode" 
+                    className="input-field text-sm uppercase tracking-wider py-2"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponInput.trim()}
+                    className="bg-gray-900 text-white px-4 rounded-xl text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  >
+                    {couponLoading ? 'Cek...' : 'Pakai'}
+                  </button>
+                </div>
+                {couponError && <p className="text-red-500 text-xs mt-1.5">{couponError}</p>}
+              </div>
+            )}
           </div>
 
           <div className="border-t border-gray-100 pt-4 space-y-3 text-sm">

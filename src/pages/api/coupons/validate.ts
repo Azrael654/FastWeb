@@ -1,19 +1,58 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
+import { getSessionUser } from '../../../lib/auth';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const user = getSessionUser(cookies);
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Harap masuk ke akun Anda' }), { status: 401 });
+  }
+
   try {
-    const { code, orderTotal } = await request.json();
-    const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
-    if (!coupon || !coupon.enabled) return new Response(JSON.stringify({ error: 'Kupon tidak valid' }), { status: 400 });
-    if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) return new Response(JSON.stringify({ error: 'Kupon sudah kadaluarsa' }), { status: 400 });
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return new Response(JSON.stringify({ error: 'Kupon sudah mencapai batas penggunaan' }), { status: 400 });
-    if (Number(coupon.minOrderValue) > 0 && orderTotal < Number(coupon.minOrderValue)) return new Response(JSON.stringify({ error: `Minimal order Rp ${Number(coupon.minOrderValue).toLocaleString('id')}` }), { status: 400 });
-    let discount = 0;
-    if (coupon.discountType === 'percentage') discount = (orderTotal * Number(coupon.discountValue)) / 100;
-    else discount = Number(coupon.discountValue);
-    return new Response(JSON.stringify({ valid: true, discount, coupon }), { status: 200 });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500 });
+    const { code, subtotal } = await request.json();
+    if (!code) return new Response(JSON.stringify({ error: 'Kode kupon kosong' }), { status: 400 });
+
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() }
+    });
+
+    if (!coupon || !coupon.enabled) {
+      return new Response(JSON.stringify({ error: 'Kupon tidak valid atau tidak ditemukan' }), { status: 400 });
+    }
+
+    if (coupon.expiryDate && new Date() > new Date(coupon.expiryDate)) {
+      return new Response(JSON.stringify({ error: 'Kupon sudah kadaluarsa' }), { status: 400 });
+    }
+
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
+      return new Response(JSON.stringify({ error: 'Batas pemakaian kupon sudah habis' }), { status: 400 });
+    }
+
+    const minOrder = Number(coupon.minOrderValue);
+    if (minOrder > 0 && subtotal < minOrder) {
+      return new Response(JSON.stringify({ error: `Minimal transaksi Rp ${minOrder.toLocaleString('id')} untuk menggunakan kupon ini` }), { status: 400 });
+    }
+
+    const value = Number(coupon.discountValue);
+    let discountAmount = 0;
+    if (coupon.discountType === 'percentage') {
+      discountAmount = (subtotal * value) / 100;
+      // Optional: cap maximum discount if needed, but not specified in schema
+    } else {
+      discountAmount = value;
+    }
+
+    // Don't discount more than subtotal
+    if (discountAmount > subtotal) {
+      discountAmount = subtotal;
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      discount: discountAmount,
+      code: coupon.code
+    }), { status: 200 });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Terjadi kesalahan saat memvalidasi kupon' }), { status: 500 });
   }
 };
