@@ -1,17 +1,17 @@
 ---
-import AdminLayout from '../../../layouts/AdminLayout.astro';
-import prisma from '../../../lib/prisma';
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import prisma from "../../../lib/prisma";
 
 const now = new Date();
-const startParam = Astro.url.searchParams.get('start');
-const endParam = Astro.url.searchParams.get('end');
+const startParam = Astro.url.searchParams.get("start");
+const endParam = Astro.url.searchParams.get("end");
 
 let filterStart: Date | undefined;
 let filterEnd: Date | undefined;
 
 if (startParam) {
-  filterStart = new Date(startParam + 'T00:00:00');
-  filterEnd = endParam ? new Date(endParam + 'T23:59:59') : new Date();
+  filterStart = new Date(startParam + "T00:00:00");
+  filterEnd = endParam ? new Date(endParam + "T23:59:59") : new Date();
 }
 
 const txWhere = filterStart
@@ -19,38 +19,103 @@ const txWhere = filterStart
   : {};
 
 const [accounts, transactions, categories] = await Promise.all([
-  prisma.account.findMany({ orderBy: { name: 'asc' } }),
-  prisma.transaction.findMany({ where: txWhere, include: { account: true }, orderBy: { date: 'desc' }, take: 100 }),
-  prisma.transactionCategory.findMany({ orderBy: { name: 'asc' } })
+  prisma.account.findMany({ orderBy: { name: "asc" } }),
+  prisma.transaction.findMany({
+    where: txWhere,
+    include: { account: true },
+    orderBy: { date: "desc" },
+    take: 100,
+  }),
+  prisma.transactionCategory.findMany({ orderBy: { name: "asc" } }),
 ]);
 
 const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-const monthIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-const monthExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+const monthIncome = transactions
+  .filter((t) => t.type === "income")
+  .reduce((s, t) => s + Number(t.amount), 0);
+const monthExpense = transactions
+  .filter((t) => t.type === "expense")
+  .reduce((s, t) => s + Number(t.amount), 0);
 
-const startInputVal = startParam || '';
-const endInputVal = endParam || '';
+const startInputVal = startParam || "";
+const endInputVal = endParam || "";
 const todayStr = now.toISOString().slice(0, 10);
 ---
+
 <AdminLayout title="Keuangan" currentPage="finance">
   <!-- Stats -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
     <div class="stat-card">
-      <div><p class="text-sm text-gray-500">Total Saldo</p><p class="text-2xl font-bold text-gray-900 mt-1">Rp {totalBalance.toLocaleString('id')}</p></div>
-      <div class="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+      <div>
+        <p class="text-sm text-gray-500">Total Saldo</p><p
+          class="text-2xl font-bold text-gray-900 mt-1"
+        >
+          Rp {totalBalance.toLocaleString("id")}
+        </p>
+      </div>
+      <div
+        class="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center"
+      >
+        <svg
+          class="w-5 h-5 text-blue-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+          ></path></svg
+        >
       </div>
     </div>
     <div class="stat-card">
-      <div><p class="text-sm text-gray-500">Pemasukan Bulan Ini</p><p class="text-2xl font-bold text-green-600 mt-1">Rp {monthIncome.toLocaleString('id')}</p></div>
-      <div class="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+      <div>
+        <p class="text-sm text-gray-500">Pemasukan</p><p
+          class="text-2xl font-bold text-green-600 mt-1"
+        >
+          Rp {monthIncome.toLocaleString("id")}
+        </p>
+      </div>
+      <div
+        class="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center"
+      >
+        <svg
+          class="w-5 h-5 text-green-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M17 13l-5 5m0 0l-5-5m5 5V6"></path></svg
+        >
       </div>
     </div>
     <div class="stat-card">
-      <div><p class="text-sm text-gray-500">Pengeluaran Bulan Ini</p><p class="text-2xl font-bold text-red-500 mt-1">Rp {monthExpense.toLocaleString('id')}</p></div>
-      <div class="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/></svg>
+      <div>
+        <p class="text-sm text-gray-500">Pengeluaran</p><p
+          class="text-2xl font-bold text-red-500 mt-1"
+        >
+          Rp {monthExpense.toLocaleString("id")}
+        </p>
+      </div>
+      <div
+        class="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center"
+      >
+        <svg
+          class="w-5 h-5 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          ><path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M7 11l5-5m0 0l5 5m-5-5v12"></path></svg
+        >
       </div>
     </div>
   </div>
@@ -60,92 +125,210 @@ const todayStr = now.toISOString().slice(0, 10);
     <div class="card p-5 xl:col-span-1">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-bold text-gray-900">Rekening</h2>
-        <button id="add-account-btn" class="btn-primary text-xs py-1.5 px-3">+ Tambah</button>
+        <button id="add-account-btn" class="btn-primary text-xs py-1.5 px-3"
+          >+ Tambah</button
+        >
       </div>
       <div class="space-y-3">
-        {accounts.map(acc => (
-          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl group relative">
-            <div class="flex-1">
-              <p class="font-semibold text-sm text-gray-900">{acc.name}</p>
-              <span class="badge-blue text-xs">{acc.type}</span>
-            </div>
-            <div class="text-right">
-              <p class={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>Rp {Number(acc.balance).toLocaleString('id')}</p>
-              <div class="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  class="edit-account-btn text-xs text-blue-600 hover:underline" 
-                  data-id={acc.id} 
-                  data-name={acc.name} 
-                  data-type={acc.type} 
-                  data-balance={Number(acc.balance)}
-                >Edit</button>
-                <button 
-                  class="delete-account-btn text-xs text-red-600 hover:underline" 
-                  data-id={acc.id}
-                >Hapus</button>
+        {
+          accounts.map((acc) => (
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl group relative">
+              <div class="flex-1">
+                <p class="font-semibold text-sm text-gray-900">{acc.name}</p>
+                <span class="badge-blue text-xs">{acc.type}</span>
+              </div>
+              <div class="text-right">
+                <p
+                  class={`font-bold text-sm ${Number(acc.balance) >= 0 ? "text-green-600" : "text-red-600"}`}
+                >
+                  Rp {Number(acc.balance).toLocaleString("id")}
+                </p>
+                <div class="flex items-center justify-end gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    class="edit-account-btn text-xs text-blue-600 hover:underline"
+                    data-id={acc.id}
+                    data-name={acc.name}
+                    data-type={acc.type}
+                    data-balance={Number(acc.balance)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="delete-account-btn text-xs text-red-600 hover:underline"
+                    data-id={acc.id}
+                  >
+                    Hapus
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        {accounts.length === 0 && <p class="text-sm text-gray-400 text-center py-4">Belum ada rekening</p>}
+          ))
+        }
+        {
+          accounts.length === 0 && (
+            <p class="text-sm text-gray-400 text-center py-4">
+              Belum ada rekening
+            </p>
+          )
+        }
       </div>
     </div>
 
     <!-- Recent Transactions -->
     <div class="card xl:col-span-3">
-      <div class="p-5 border-b border-gray-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div
+        class="p-5 border-b border-gray-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      >
         <h2 class="font-bold text-gray-900">Transaksi Terbaru</h2>
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <form action="/admin/finance" method="GET" class="flex flex-col sm:flex-row items-center gap-2 flex-1">
-            <input type="date" name="start" value={startInputVal} max={todayStr} class="input-field text-xs py-1.5 px-2" />
+          <form
+            action="/admin/finance"
+            method="GET"
+            class="flex flex-col sm:flex-row items-center gap-2 flex-1"
+          >
+            <input
+              type="date"
+              name="start"
+              value={startInputVal}
+              max={todayStr}
+              class="input-field text-xs py-1.5 px-2"
+            />
             <span class="text-gray-400 text-xs">sampai</span>
-            <input type="date" name="end" value={endInputVal} max={todayStr} class="input-field text-xs py-1.5 px-2" />
-            <button type="submit" class="btn-primary text-xs py-1.5 px-3">Filter</button>
-            {startInputVal && <a href="/admin/finance" class="btn-ghost text-xs py-1.5 px-2 text-gray-500">Reset</a>}
+            <input
+              type="date"
+              name="end"
+              value={endInputVal}
+              max={todayStr}
+              class="input-field text-xs py-1.5 px-2"
+            />
+            <button type="submit" class="btn-primary text-xs py-1.5 px-3"
+              >Filter</button
+            >
+            {
+              startInputVal && (
+                <a
+                  href="/admin/finance"
+                  class="btn-ghost text-xs py-1.5 px-2 text-gray-500"
+                >
+                  Reset
+                </a>
+              )
+            }
           </form>
-          <a href={`/api/export-finance${startParam ? `?start=${startParam}&end=${endParam}` : ''}`} class="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1 border border-gray-200" download>
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <a
+            href={`/api/export-finance${startParam ? `?start=${startParam}&end=${endParam}` : ""}`}
+            class="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1 border border-gray-200"
+            download
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              ></path></svg
+            >
             Export CSV
           </a>
         </div>
       </div>
       <div class="divide-y divide-gray-50">
-        {transactions.slice(0, 10).map(tx => (
-          <div class="flex items-center justify-between px-5 py-3">
-            <div class="flex items-center gap-3">
-              <div class={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-green-50' : 'bg-red-50'}`}>
-                <svg class={`w-4 h-4 ${tx.type === 'income' ? 'text-green-500' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {tx.type === 'income'
-                    ? <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
-                    : <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/>}
-                </svg>
+        {
+          transactions.slice(0, 10).map((tx) => (
+            <button
+              type="button"
+              class="tx-row w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 text-left transition-colors cursor-pointer"
+              data-tx={JSON.stringify(tx)}
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${tx.type === "income" ? "bg-green-50" : "bg-red-50"}`}
+                >
+                  <svg
+                    class={`w-4 h-4 ${tx.type === "income" ? "text-green-500" : "text-red-500"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {tx.type === "income" ? (
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 13l-5 5m0 0l-5-5m5 5V6"
+                      />
+                    ) : (
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 11l5-5m0 0l5 5m-5-5v12"
+                      />
+                    )}
+                  </svg>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">
+                    {tx.description || tx.category || "-"}
+                  </p>
+                  <p class="text-xs text-gray-500 truncate">
+                    {tx.account.name} ·{" "}
+                    {new Date(tx.date).toLocaleDateString("id-ID")}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p class="text-sm font-medium text-gray-900">{tx.description || tx.category || '-'}</p>
-                <p class="text-xs text-gray-500">{tx.account.name} · {new Date(tx.date).toLocaleDateString('id-ID')}</p>
-              </div>
-            </div>
-            <p class={`text-sm font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-              {tx.type === 'income' ? '+' : '-'}Rp {Number(tx.amount).toLocaleString('id')}
-            </p>
-          </div>
-        ))}
+              <p
+                class={`text-sm font-bold shrink-0 pl-3 ${tx.type === "income" ? "text-green-600" : "text-red-500"}`}
+              >
+                {tx.type === "income" ? "+" : "-"}Rp{" "}
+                {Number(tx.amount).toLocaleString("id")}
+              </p>
+            </button>
+          ))
+        }
       </div>
     </div>
   </div>
 
   <!-- Floating Action Button -->
-  <button id="fab-add-tx" class="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-40" title="Catat Transaksi">
-    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+  <button
+    id="fab-add-tx"
+    class="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-500/30 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-40"
+    title="Catat Transaksi"
+  >
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      ><path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M12 4v16m8-8H4"></path></svg
+    >
   </button>
 
   <!-- Add Transaction Modal -->
-  <div id="tx-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div
+    id="tx-modal"
+    class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+  >
     <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-gray-900 text-lg">Catat Transaksi</h3>
         <button id="close-tx-modal" class="text-gray-400 hover:text-gray-600">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"></path></svg
+          >
         </button>
       </div>
       <div id="tx-msg" class="hidden mb-3 text-sm p-2 rounded-lg"></div>
@@ -161,73 +344,236 @@ const todayStr = now.toISOString().slice(0, 10);
         <div>
           <label class="label" id="tx-account-label">Rekening</label>
           <select name="accountId" id="tx-account" class="input-field text-sm">
-            {accounts.map(a => <option value={a.id}>{a.name} ({a.type})</option>)}
+            {
+              accounts.map((a) => (
+                <option value={a.id}>
+                  {a.name} ({a.type})
+                </option>
+              ))
+            }
           </select>
         </div>
         <div id="tx-target-account-wrap" class="hidden">
           <label class="label">Ke Rekening Tujuan</label>
-          <select name="targetAccountId" id="tx-target-account" class="input-field text-sm">
+          <select
+            name="targetAccountId"
+            id="tx-target-account"
+            class="input-field text-sm"
+          >
             <option value="">Pilih Rekening Tujuan...</option>
-            {accounts.map(a => <option value={a.id}>{a.name} ({a.type})</option>)}
+            {
+              accounts.map((a) => (
+                <option value={a.id}>
+                  {a.name} ({a.type})
+                </option>
+              ))
+            }
           </select>
         </div>
         <div>
           <label class="label">Jumlah (Rp)</label>
-          <input name="amount" type="number" min="1" required class="input-field text-sm" placeholder="50000" />
+          <input
+            name="amount"
+            type="number"
+            min="1"
+            required
+            class="input-field text-sm"
+            placeholder="50000"
+          />
         </div>
         <div class="flex items-end gap-2">
           <div class="flex-1">
             <label class="label">Kategori</label>
             <select name="category" class="input-field text-sm">
               <option value="">-- Pilih Kategori --</option>
-              {categories.map(c => <option value={c.name}>{c.name} ({c.type === 'income' ? 'Pemasukan' : 'Pengeluaran'})</option>)}
+              {
+                categories.map((c) => (
+                  <option value={c.name}>
+                    {c.name} (
+                    {c.type === "income" ? "Pemasukan" : "Pengeluaran"})
+                  </option>
+                ))
+              }
             </select>
           </div>
-          <button type="button" id="manage-category-btn" class="btn-ghost shrink-0 px-3 py-2 text-sm">Atur</button>
+          <button
+            type="button"
+            id="manage-category-btn"
+            class="btn-ghost shrink-0 px-3 py-2 text-sm">Atur</button
+          >
         </div>
         <div>
           <label class="label">Deskripsi</label>
-          <input name="description" class="input-field text-sm" placeholder="Keterangan transaksi" />
+          <input
+            name="description"
+            class="input-field text-sm"
+            placeholder="Keterangan transaksi"
+          />
+        </div>
+        <div>
+          <label class="label">Bukti Transaksi (Opsional)</label>
+          <input
+            type="file"
+            id="tx-file"
+            accept="image/*"
+            class="input-field text-sm p-1.5"
+          />
         </div>
         <div class="pt-2">
-          <button type="submit" class="btn-primary w-full text-sm">Simpan Transaksi</button>
+          <button type="submit" class="btn-primary w-full text-sm"
+            >Simpan Transaksi</button
+          >
         </div>
       </form>
     </div>
   </div>
 
+  <!-- Transaction Detail Modal -->
+  <div
+    id="tx-detail-modal"
+    class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+  >
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <div
+        class="flex items-center justify-between mb-4 border-b border-gray-100 pb-3"
+      >
+        <h3 class="font-bold text-gray-900 text-lg">Detail Transaksi</h3>
+        <button
+          id="close-tx-detail-modal"
+          class="text-gray-400 hover:text-gray-600"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"></path></svg
+          >
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">Jumlah</span>
+          <span id="detail-amount" class="text-lg font-bold"></span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">Tipe</span>
+          <span id="detail-type" class="text-sm font-medium capitalize"></span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">Rekening</span>
+          <span id="detail-account" class="text-sm font-medium"></span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">Tanggal</span>
+          <span id="detail-date" class="text-sm font-medium"></span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">Kategori</span>
+          <span id="detail-category" class="text-sm font-medium"></span>
+        </div>
+        <div>
+          <span class="text-sm text-gray-500 block mb-1">Deskripsi</span>
+          <p
+            id="detail-description"
+            class="text-sm bg-gray-50 p-2 rounded-lg text-gray-800 break-words min-h-[2.5rem]"
+          >
+          </p>
+        </div>
+        <div id="detail-proof-container" class="hidden">
+          <span class="text-sm text-gray-500 block mb-1">Bukti Transaksi</span>
+          <a id="detail-proof-link" href="#" target="_blank" class="block">
+            <img
+              id="detail-proof-img"
+              src=""
+              alt="Bukti Transaksi"
+              class="w-full h-auto max-h-48 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+            />
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Add Account Modal -->
-  <div id="account-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div
+    id="account-modal"
+    class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+  >
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-      <h3 id="account-modal-title" class="font-bold text-gray-900 text-lg mb-4">Tambah Rekening</h3>
+      <h3 id="account-modal-title" class="font-bold text-gray-900 text-lg mb-4">
+        Tambah Rekening
+      </h3>
       <form id="account-form" class="space-y-4">
         <input type="hidden" name="id" id="account-id" />
-        <div><label class="label">Nama Rekening</label><input name="name" id="account-name" required class="input-field" placeholder="BCA, Kas Operasional..." /></div>
-        <div><label class="label">Tipe</label>
+        <div>
+          <label class="label">Nama Rekening</label><input
+            name="name"
+            id="account-name"
+            required
+            class="input-field"
+            placeholder="BCA, Kas Operasional..."
+          />
+        </div>
+        <div>
+          <label class="label">Tipe</label>
           <select name="type" id="account-type" class="input-field">
             <option value="Cash">Cash</option>
             <option value="Bank">Bank</option>
           </select>
         </div>
-        <div id="account-balance-wrap"><label class="label">Saldo Awal (Rp)</label><input name="balance" id="account-balance" type="number" value="0" required class="input-field" /></div>
-        <div class="flex gap-3"><button type="submit" class="btn-primary flex-1">Simpan</button><button type="button" id="close-account-modal" class="btn-ghost flex-1">Batal</button></div>
+        <div id="account-balance-wrap">
+          <label class="label">Saldo Awal (Rp)</label><input
+            name="balance"
+            id="account-balance"
+            type="number"
+            value="0"
+            required
+            class="input-field"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button type="submit" class="btn-primary flex-1">Simpan</button
+          ><button
+            type="button"
+            id="close-account-modal"
+            class="btn-ghost flex-1">Batal</button>
+        </div>
       </form>
     </div>
   </div>
 
   <!-- Category Management Modal -->
-  <div id="category-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+  <div
+    id="category-modal"
+    class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+  >
+    <div
+      class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto"
+    >
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-bold text-gray-900 text-lg">Kelola Kategori</h3>
-        <button id="close-category-modal" class="text-gray-400 hover:text-gray-600">&times;</button>
+        <button
+          id="close-category-modal"
+          class="text-gray-400 hover:text-gray-600">&times;</button
+        >
       </div>
-      
+
       <form id="category-form" class="flex items-end gap-2 mb-6">
         <input type="hidden" name="id" id="cat-id" />
         <div class="flex-1">
           <label class="label text-xs">Nama Kategori</label>
-          <input name="name" id="cat-name" required class="input-field text-sm" placeholder="Misal: Gaji Karyawan" />
+          <input
+            name="name"
+            id="cat-name"
+            required
+            class="input-field text-sm"
+            placeholder="Misal: Gaji Karyawan"
+          />
         </div>
         <div>
           <label class="label text-xs">Tipe</label>
@@ -240,19 +586,39 @@ const todayStr = now.toISOString().slice(0, 10);
       </form>
 
       <div class="space-y-2">
-        {categories.map(c => (
-          <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group">
-            <div>
-              <p class="font-medium text-sm text-gray-900">{c.name}</p>
-              <p class="text-xs text-gray-500">{c.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}</p>
+        {
+          categories.map((c) => (
+            <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group">
+              <div>
+                <p class="font-medium text-sm text-gray-900">{c.name}</p>
+                <p class="text-xs text-gray-500">
+                  {c.type === "income" ? "Pemasukan" : "Pengeluaran"}
+                </p>
+              </div>
+              <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                <button
+                  class="edit-cat-btn text-xs text-blue-600 hover:underline"
+                  data-id={c.id}
+                  data-name={c.name}
+                  data-type={c.type}
+                >
+                  Edit
+                </button>
+                <button
+                  class="delete-cat-btn text-xs text-red-600 hover:underline"
+                  data-id={c.id}
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-              <button class="edit-cat-btn text-xs text-blue-600 hover:underline" data-id={c.id} data-name={c.name} data-type={c.type}>Edit</button>
-              <button class="delete-cat-btn text-xs text-red-600 hover:underline" data-id={c.id}>Hapus</button>
-            </div>
-          </div>
-        ))}
-        {categories.length === 0 && <p class="text-sm text-center text-gray-400">Belum ada kategori</p>}
+          ))
+        }
+        {
+          categories.length === 0 && (
+            <p class="text-sm text-center text-gray-400">Belum ada kategori</p>
+          )
+        }
       </div>
     </div>
   </div>
@@ -260,155 +626,293 @@ const todayStr = now.toISOString().slice(0, 10);
 
 <script>
   // Transaction Modal Toggling
-  const txModal = document.getElementById('tx-modal')!;
-  document.getElementById('fab-add-tx')?.addEventListener('click', () => {
-    txModal.classList.remove('hidden');
+  const txModal = document.getElementById("tx-modal")!;
+  document.getElementById("fab-add-tx")?.addEventListener("click", () => {
+    txModal.classList.remove("hidden");
   });
-  document.getElementById('close-tx-modal')?.addEventListener('click', () => {
-    txModal.classList.add('hidden');
+  document.getElementById("close-tx-modal")?.addEventListener("click", () => {
+    txModal.classList.add("hidden");
   });
 
   // Account Form Logic
-  const accountModal = document.getElementById('account-modal')!;
-  const accountForm = document.getElementById('account-form') as HTMLFormElement;
-  const idInput = document.getElementById('account-id') as HTMLInputElement;
-  const title = document.getElementById('account-modal-title')!;
+  const accountModal = document.getElementById("account-modal")!;
+  const accountForm = document.getElementById(
+    "account-form",
+  ) as HTMLFormElement;
+  const idInput = document.getElementById("account-id") as HTMLInputElement;
+  const title = document.getElementById("account-modal-title")!;
 
-  document.getElementById('add-account-btn')?.addEventListener('click', () => {
+  document.getElementById("add-account-btn")?.addEventListener("click", () => {
     accountForm.reset();
-    idInput.value = '';
-    title.textContent = 'Tambah Rekening';
-    document.getElementById('account-balance-wrap')?.classList.remove('hidden');
-    (document.getElementById('account-balance') as HTMLInputElement).required = true;
-    accountModal.classList.remove('hidden');
+    idInput.value = "";
+    title.textContent = "Tambah Rekening";
+    document.getElementById("account-balance-wrap")?.classList.remove("hidden");
+    (document.getElementById("account-balance") as HTMLInputElement).required =
+      true;
+    accountModal.classList.remove("hidden");
   });
 
-  document.getElementById('close-account-modal')?.addEventListener('click', () => {
-    accountModal.classList.add('hidden');
-  });
+  document
+    .getElementById("close-account-modal")
+    ?.addEventListener("click", () => {
+      accountModal.classList.add("hidden");
+    });
 
-  document.querySelectorAll('.edit-account-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  document.querySelectorAll(".edit-account-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       const el = e.currentTarget as HTMLElement;
       idInput.value = el.dataset.id!;
-      (document.getElementById('account-name') as HTMLInputElement).value = el.dataset.name!;
-      (document.getElementById('account-type') as HTMLSelectElement).value = el.dataset.type!;
-      
+      (document.getElementById("account-name") as HTMLInputElement).value =
+        el.dataset.name!;
+      (document.getElementById("account-type") as HTMLSelectElement).value =
+        el.dataset.type!;
+
       // Hide balance field on edit
-      document.getElementById('account-balance-wrap')?.classList.add('hidden');
-      (document.getElementById('account-balance') as HTMLInputElement).required = false;
+      document.getElementById("account-balance-wrap")?.classList.add("hidden");
+      (
+        document.getElementById("account-balance") as HTMLInputElement
+      ).required = false;
 
-      title.textContent = 'Edit Rekening';
-      accountModal.classList.remove('hidden');
+      title.textContent = "Edit Rekening";
+      accountModal.classList.remove("hidden");
     });
   });
 
-  document.querySelectorAll('.delete-account-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      if (!confirm('Yakin ingin menghapus rekening ini? Semua transaksi terkait juga dapat terpengaruh.')) return;
+  document.querySelectorAll(".delete-account-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      if (
+        !confirm(
+          "Yakin ingin menghapus rekening ini? Semua transaksi terkait juga dapat terpengaruh.",
+        )
+      )
+        return;
       const el = e.currentTarget as HTMLElement;
-      const res = await fetch(`/api/finance/accounts/${el.dataset.id}`, { method: 'DELETE' });
-      if (res.ok) location.reload(); else alert('Gagal menghapus rekening');
+      const res = await fetch(`/api/finance/accounts/${el.dataset.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) location.reload();
+      else alert("Gagal menghapus rekening");
     });
   });
 
-  accountForm?.addEventListener('submit', async (e) => {
+  accountForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(accountForm));
     const isEdit = !!data.id;
-    const url = isEdit ? `/api/finance/accounts/${data.id}` : '/api/finance/accounts';
-    const method = isEdit ? 'PUT' : 'POST';
-    
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) location.reload(); else alert('Gagal menyimpan rekening');
+    const url = isEdit
+      ? `/api/finance/accounts/${data.id}`
+      : "/api/finance/accounts";
+    const method = isEdit ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) location.reload();
+    else alert("Gagal menyimpan rekening");
   });
 
   // Category Logic
-  const catModal = document.getElementById('category-modal')!;
-  const catForm = document.getElementById('category-form') as HTMLFormElement;
-  const catIdInput = document.getElementById('cat-id') as HTMLInputElement;
-  
-  document.getElementById('manage-category-btn')?.addEventListener('click', () => {
-    catForm.reset();
-    catIdInput.value = '';
-    catModal.classList.remove('hidden');
-  });
+  const catModal = document.getElementById("category-modal")!;
+  const catForm = document.getElementById("category-form") as HTMLFormElement;
+  const catIdInput = document.getElementById("cat-id") as HTMLInputElement;
 
-  document.getElementById('close-category-modal')?.addEventListener('click', () => {
-    catModal.classList.add('hidden');
-  });
+  document
+    .getElementById("manage-category-btn")
+    ?.addEventListener("click", () => {
+      catForm.reset();
+      catIdInput.value = "";
+      catModal.classList.remove("hidden");
+    });
 
-  document.querySelectorAll('.edit-cat-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  document
+    .getElementById("close-category-modal")
+    ?.addEventListener("click", () => {
+      catModal.classList.add("hidden");
+    });
+
+  document.querySelectorAll(".edit-cat-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       const el = e.currentTarget as HTMLElement;
       catIdInput.value = el.dataset.id!;
-      (document.getElementById('cat-name') as HTMLInputElement).value = el.dataset.name!;
-      (document.getElementById('cat-type') as HTMLSelectElement).value = el.dataset.type!;
+      (document.getElementById("cat-name") as HTMLInputElement).value =
+        el.dataset.name!;
+      (document.getElementById("cat-type") as HTMLSelectElement).value =
+        el.dataset.type!;
     });
   });
 
-  document.querySelectorAll('.delete-cat-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      if (!confirm('Yakin ingin menghapus kategori ini?')) return;
+  document.querySelectorAll(".delete-cat-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      if (!confirm("Yakin ingin menghapus kategori ini?")) return;
       const el = e.currentTarget as HTMLElement;
-      const res = await fetch(`/api/finance/categories/${el.dataset.id}`, { method: 'DELETE' });
-      if (res.ok) location.reload(); else alert('Gagal menghapus kategori');
+      const res = await fetch(`/api/finance/categories/${el.dataset.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) location.reload();
+      else alert("Gagal menghapus kategori");
     });
   });
 
-  catForm?.addEventListener('submit', async (e) => {
+  catForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(catForm));
     const isEdit = !!data.id;
-    const url = isEdit ? `/api/finance/categories/${data.id}` : '/api/finance/categories';
-    const method = isEdit ? 'PUT' : 'POST';
-    
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) location.reload(); else alert('Gagal menyimpan kategori');
+    const url = isEdit
+      ? `/api/finance/categories/${data.id}`
+      : "/api/finance/categories";
+    const method = isEdit ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) location.reload();
+    else alert("Gagal menyimpan kategori");
   });
 
   // Transaction Form Validation & Submit
-  const txType = document.getElementById('tx-type') as HTMLSelectElement;
-  const txAccountLabel = document.getElementById('tx-account-label')!;
-  const txTargetWrap = document.getElementById('tx-target-account-wrap')!;
-  const txTargetInput = document.getElementById('tx-target-account') as HTMLSelectElement;
+  const txType = document.getElementById("tx-type") as HTMLSelectElement;
+  const txAccountLabel = document.getElementById("tx-account-label")!;
+  const txTargetWrap = document.getElementById("tx-target-account-wrap")!;
+  const txTargetInput = document.getElementById(
+    "tx-target-account",
+  ) as HTMLSelectElement;
 
-  txType?.addEventListener('change', () => {
-    const isTransfer = txType.value === 'transfer';
+  txType?.addEventListener("change", () => {
+    const isTransfer = txType.value === "transfer";
     if (isTransfer) {
-      txAccountLabel.textContent = 'Dari Rekening Sumber';
-      txTargetWrap.classList.remove('hidden');
+      txAccountLabel.textContent = "Dari Rekening Sumber";
+      txTargetWrap.classList.remove("hidden");
       txTargetInput.required = true;
     } else {
-      txAccountLabel.textContent = 'Rekening';
-      txTargetWrap.classList.add('hidden');
+      txAccountLabel.textContent = "Rekening";
+      txTargetWrap.classList.add("hidden");
       txTargetInput.required = false;
-      txTargetInput.value = '';
+      txTargetInput.value = "";
     }
   });
 
-  document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
+  document.getElementById("tx-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const msg = document.getElementById('tx-msg')!;
+    const btn = (e.target as HTMLFormElement).querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Menyimpan...";
+
+    const msg = document.getElementById("tx-msg")!;
     const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
-    
-    if (data.type === 'transfer' && data.accountId === data.targetAccountId) {
-      msg.textContent = 'Rekening sumber dan tujuan tidak boleh sama.';
-      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
-      msg.classList.remove('hidden');
+
+    if (data.type === "transfer" && data.accountId === data.targetAccountId) {
+      msg.textContent = "Rekening sumber dan tujuan tidak boleh sama.";
+      msg.className = "mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700";
+      msg.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Simpan Transaksi";
       return;
     }
 
-    const res = await fetch('/api/finance/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) {
-      msg.textContent = 'Transaksi berhasil disimpan!';
-      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700';
-      msg.classList.remove('hidden');
-      setTimeout(() => location.reload(), 800);
-    } else {
-      msg.textContent = 'Gagal menyimpan transaksi';
-      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
-      msg.classList.remove('hidden');
+    try {
+      // Handle file upload if present
+      const fileInput = document.getElementById("tx-file") as HTMLInputElement;
+      let imageUrl = undefined;
+
+      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const fd = new FormData();
+        fd.append("file", fileInput.files[0]);
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: fd,
+        });
+        if (!uploadRes.ok) throw new Error("Gagal mengunggah bukti transaksi");
+        const uploadData = await uploadRes.json();
+        imageUrl = uploadData.url;
+      }
+
+      const payload = { ...data, imageUrl };
+
+      const res = await fetch("/api/finance/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        msg.textContent = "Transaksi berhasil disimpan!";
+        msg.className =
+          "mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700";
+        msg.classList.remove("hidden");
+        setTimeout(() => location.reload(), 800);
+      } else {
+        throw new Error("Gagal menyimpan transaksi");
+      }
+    } catch (err: any) {
+      msg.textContent = err.message || "Terjadi kesalahan jaringan";
+      msg.className = "mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700";
+      msg.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Simpan Transaksi";
     }
+  });
+
+  // Transaction Detail Modal Logic
+  const txDetailModal = document.getElementById("tx-detail-modal")!;
+  document
+    .getElementById("close-tx-detail-modal")
+    ?.addEventListener("click", () => {
+      txDetailModal.classList.add("hidden");
+    });
+
+  document.querySelectorAll(".tx-row").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      const el = e.currentTarget as HTMLElement;
+      const tx = JSON.parse(el.dataset.tx || "{}");
+
+      document.getElementById("detail-amount")!.textContent =
+        `Rp ${Number(tx.amount).toLocaleString("id")}`;
+      document.getElementById("detail-amount")!.className =
+        `text-lg font-bold ${tx.type === "income" ? "text-green-600" : "text-red-500"}`;
+      document.getElementById("detail-type")!.textContent =
+        tx.type === "income"
+          ? "Pemasukan"
+          : tx.type === "expense"
+            ? "Pengeluaran"
+            : "Transfer";
+      document.getElementById("detail-account")!.textContent =
+        tx.account?.name || "-";
+      document.getElementById("detail-date")!.textContent = new Date(
+        tx.date,
+      ).toLocaleDateString("id-ID", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      document.getElementById("detail-category")!.textContent =
+        tx.category || "-";
+      document.getElementById("detail-description")!.textContent =
+        tx.description || "-";
+
+      const proofContainer = document.getElementById("detail-proof-container")!;
+      const proofImg = document.getElementById(
+        "detail-proof-img",
+      ) as HTMLImageElement;
+      const proofLink = document.getElementById(
+        "detail-proof-link",
+      ) as HTMLAnchorElement;
+
+      if (tx.imageUrl) {
+        proofImg.src = tx.imageUrl;
+        proofLink.href = tx.imageUrl;
+        proofContainer.classList.remove("hidden");
+      } else {
+        proofContainer.classList.add("hidden");
+      }
+
+      txDetailModal.classList.remove("hidden");
+    });
   });
 </script>
