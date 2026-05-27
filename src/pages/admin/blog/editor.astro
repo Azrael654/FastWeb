@@ -1,0 +1,188 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+import { requireAdmin } from '../../../lib/auth';
+
+const user = requireAdmin(Astro.cookies);
+if (!user) return Astro.redirect('/login');
+
+const id = Astro.url.searchParams.get('id');
+let post = null;
+
+if (id) {
+  post = await prisma.blogPost.findUnique({ where: { id } });
+  if (!post) return Astro.redirect('/admin/blog');
+}
+
+const categories = await prisma.blogCategory.findMany({ orderBy: { name: 'asc' } });
+---
+<AdminLayout title={post ? 'Edit Artikel' : 'Tulis Artikel'} currentPage="blog">
+  <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center gap-3">
+      <a href="/admin/blog" class="w-8 h-8 flex items-center justify-center bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+      <h2 class="text-lg font-bold text-gray-900">{post ? 'Edit Artikel' : 'Tulis Artikel Baru'}</h2>
+    </div>
+  </div>
+
+  <div class="card p-6">
+    <form id="post-form" class="space-y-4">
+      <input type="hidden" name="id" value={post?.id || ''} />
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="label">Judul *</label>
+          <input name="title" required class="input-field" id="post-title" value={post?.title || ''} />
+        </div>
+        <div>
+          <label class="label">Slug</label>
+          <input name="slug" id="post-slug" class="input-field font-mono text-sm" placeholder="auto-generated" value={post?.slug || ''} />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="label">Kategori</label>
+          <select name="category" class="input-field">
+            <option value="">-- Tanpa Kategori --</option>
+            {categories.map(c => (
+              <option value={c.name} selected={post?.category === c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label class="label">Penulis</label>
+          <input name="author" class="input-field bg-gray-50 text-gray-500 cursor-not-allowed" value={post?.author || user.name} readonly />
+        </div>
+      </div>
+
+      <div>
+        <label class="label">Ringkasan Singkat</label>
+        <textarea name="excerpt" class="input-field" rows="2">{post?.excerpt || ''}</textarea>
+      </div>
+
+      <div>
+        <label class="label">Gambar Sampul</label>
+        <div class="flex items-center gap-4">
+          <div class="flex-1">
+            <input type="file" id="image-file" accept="image/*" class="input-field py-1.5" />
+            <input type="hidden" name="image" id="image-url" value={post?.image || ''} />
+          </div>
+          {post?.image && (
+            <img src={post.image} class="w-12 h-12 rounded object-cover border border-gray-200" alt="Preview" />
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label class="label">Konten *</label>
+        <textarea name="content" id="markdown-editor">{post?.content || ''}</textarea>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2 border-t border-gray-100">
+        <input type="checkbox" name="published" id="published" value="true" class="w-4 h-4 text-blue-600 rounded" checked={post?.published || false} />
+        <label for="published" class="text-sm font-medium text-gray-700">Publikasikan sekarang</label>
+      </div>
+
+      <div class="flex justify-end pt-4">
+        <button type="submit" class="btn-primary">Simpan Artikel</button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<!-- Load EasyMDE for WYSIWYG Markdown Editing -->
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+
+<style is:global>
+  .editor-toolbar { border-color: #e5e7eb !important; opacity: 1 !important; border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; }
+  .CodeMirror { border-color: #e5e7eb !important; border-bottom-left-radius: 0.5rem !important; border-bottom-right-radius: 0.5rem !important; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 14px; }
+  .editor-statusbar { padding: 8px 12px !important; }
+</style>
+
+<script>
+  // Initialize EasyMDE
+  let easyMDE: any;
+  
+  // Wait for the script to load completely
+  window.addEventListener('load', () => {
+    if (typeof (window as any).EasyMDE !== 'undefined') {
+      easyMDE = new (window as any).EasyMDE({
+        element: document.getElementById('markdown-editor'),
+        spellChecker: false,
+        placeholder: "Tulis konten artikel di sini...",
+        minHeight: "400px",
+        maxHeight: "600px",
+      });
+    }
+  });
+
+  const titleInput = document.getElementById('post-title') as HTMLInputElement;
+  const slugInput = document.getElementById('post-slug') as HTMLInputElement;
+
+  // Auto-generate slug from title if slug is empty or it's a new post
+  titleInput?.addEventListener('input', (e) => {
+    // Only auto-generate if there's no ID (new post) OR the user is clearing the slug
+    if (!document.querySelector('input[name="id"]')?.getAttribute('value')) {
+      const val = (e.target as HTMLInputElement).value;
+      slugInput.value = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+  });
+
+  document.getElementById('post-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+
+    try {
+      const fd = new FormData(form);
+      const data: any = Object.fromEntries(fd);
+      
+      // Update content from EasyMDE
+      if (easyMDE) {
+        data.content = easyMDE.value();
+      }
+      
+      if (!data.content || data.content.trim() === '') {
+        throw new Error('Konten artikel tidak boleh kosong');
+      }
+
+      // Handle file upload
+      const fileInput = document.getElementById('image-file') as HTMLInputElement;
+      if (fileInput.files && fileInput.files.length > 0) {
+        const uploadFd = new FormData();
+        uploadFd.append('file', fileInput.files[0]);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          data.image = uploadData.url;
+        } else {
+          throw new Error('Gagal mengunggah gambar');
+        }
+      }
+
+      data.published = fd.get('published') === 'true';
+      if (!data.slug) data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
+      const isEdit = !!data.id;
+      const url = isEdit ? `/api/blog/${data.id}` : '/api/blog';
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (res.ok) {
+        window.location.href = '/admin/blog';
+      } else { 
+        const err = await res.json(); 
+        throw new Error(err.error || 'Gagal menyimpan artikel'); 
+      }
+    } catch (error: any) {
+      alert(error.message || 'Terjadi kesalahan');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Simpan Artikel';
+    }
+  });
+</script>

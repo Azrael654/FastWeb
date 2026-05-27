@@ -3,6 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
 
 const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
+const categories = await prisma.blogCategory.findMany({ orderBy: { name: 'asc' } });
 ---
 <AdminLayout title="Blog" currentPage="blog">
   <div class="flex items-center justify-between mb-5">
@@ -10,10 +11,13 @@ const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
       <h2 class="text-lg font-bold text-gray-900">Artikel Blog</h2>
       <p class="text-sm text-gray-500">{posts.length} artikel</p>
     </div>
-    <button id="add-post-btn" class="btn-primary text-sm">+ Tulis Artikel</button>
+    <div class="flex gap-2">
+      <button id="manage-category-btn" class="btn-ghost border border-gray-200 text-sm">Kelola Kategori</button>
+      <a href="/admin/blog/editor" class="btn-primary text-sm">+ Tulis Artikel</a>
+    </div>
   </div>
 
-  <div class="card">
+  <div class="card mb-8">
     <div class="table-wrapper">
       <table class="data-table">
         <thead><tr><th>Judul</th><th>Kategori</th><th>Penulis</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead>
@@ -29,9 +33,10 @@ const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
               <td class="text-xs text-gray-500">{new Date(p.date).toLocaleDateString('id-ID')}</td>
               <td>{p.published ? <span class="badge-green text-xs">Publik</span> : <span class="badge-gray text-xs">Draft</span>}</td>
               <td>
-                <div class="flex gap-2">
-                  <a href={`/blog/${p.slug}`} target="_blank" class="text-blue-600 hover:underline text-xs">Lihat</a>
-                  <button data-id={p.id} class="delete-post text-red-500 hover:underline text-xs">Hapus</button>
+                <div class="flex items-center gap-3">
+                  <a href={`/blog/${p.slug}`} target="_blank" class="text-blue-600 hover:text-blue-800 text-xs">Lihat</a>
+                  <a href={`/admin/blog/editor?id=${p.id}`} class="text-yellow-600 hover:text-yellow-800 text-xs">Edit</a>
+                  <button data-id={p.id} class="delete-post text-red-500 hover:text-red-700 text-xs">Hapus</button>
                 </div>
               </td>
             </tr>
@@ -42,94 +47,91 @@ const posts = await prisma.blogPost.findMany({ orderBy: { date: 'desc' } });
     </div>
   </div>
 
-  <!-- Add Post Modal -->
-  <div id="post-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-      <h3 class="font-bold text-gray-900 text-lg mb-4">Tulis Artikel Baru</h3>
-      <form id="post-form" class="space-y-3">
-        <div><label class="label">Judul *</label><input name="title" required class="input-field text-sm" id="post-title" /></div>
-        <div><label class="label">Slug</label><input name="slug" id="post-slug" class="input-field text-sm font-mono" placeholder="auto-generated" /></div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="label">Penulis *</label><input name="author" required class="input-field text-sm" /></div>
-          <div><label class="label">Kategori</label><input name="category" class="input-field text-sm" /></div>
+  <!-- Category Modal -->
+  <div id="category-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-900 text-lg">Kelola Kategori Blog</h3>
+        <button id="close-category-modal" class="text-gray-400 hover:text-gray-600">&times;</button>
+      </div>
+      
+      <form id="category-form" class="flex items-end gap-2 mb-6">
+        <input type="hidden" name="id" id="cat-id" />
+        <div class="flex-1">
+          <label class="label text-xs">Nama Kategori</label>
+          <input name="name" id="cat-name" required class="input-field text-sm" placeholder="Misal: Tips Cetak" />
         </div>
-        <div><label class="label">Ringkasan</label><textarea name="excerpt" class="input-field text-sm" rows="2"></textarea></div>
-        <div><label class="label">Konten *</label><textarea name="content" required class="input-field text-sm font-mono" rows="8" placeholder="Tulis konten dalam Markdown..."></textarea></div>
-        <div>
-          <label class="label">Gambar</label>
-          <div class="flex flex-col gap-2">
-            <input type="file" id="image-file" accept="image/*" class="input-field text-sm py-1.5" />
-            <input type="hidden" name="image" id="image-url" />
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" name="published" id="published" value="true" class="w-4 h-4 text-blue-600 rounded" />
-          <label for="published" class="text-sm font-medium text-gray-700">Publikasikan sekarang</label>
-        </div>
-        <div class="flex gap-3 pt-2">
-          <button type="submit" class="btn-primary flex-1 text-sm">Simpan</button>
-          <button type="button" id="close-post-modal" class="btn-ghost flex-1 text-sm">Batal</button>
-        </div>
+        <button type="submit" class="btn-primary text-sm px-4 py-2.5 h-[42px]">Simpan</button>
       </form>
+
+      <div class="space-y-2">
+        {categories.map(c => (
+          <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group">
+            <div>
+              <p class="font-medium text-sm text-gray-900">{c.name}</p>
+            </div>
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              <button class="edit-cat-btn text-xs text-blue-600 hover:underline" data-id={c.id} data-name={c.name}>Edit</button>
+              <button class="delete-cat-btn text-xs text-red-600 hover:underline" data-id={c.id}>Hapus</button>
+            </div>
+          </div>
+        ))}
+        {categories.length === 0 && <p class="text-sm text-center text-gray-400">Belum ada kategori</p>}
+      </div>
     </div>
   </div>
 </AdminLayout>
 
 <script>
-  document.getElementById('add-post-btn')?.addEventListener('click', () => document.getElementById('post-modal')?.classList.remove('hidden'));
-  document.getElementById('close-post-modal')?.addEventListener('click', () => document.getElementById('post-modal')?.classList.add('hidden'));
+  // Category Modal Logic
+  const catModal = document.getElementById('category-modal')!;
+  const catForm = document.getElementById('category-form') as HTMLFormElement;
+  const catIdInput = document.getElementById('cat-id') as HTMLInputElement;
 
-  document.getElementById('post-title')?.addEventListener('input', (e) => {
-    const slug = (e.target as HTMLInputElement).value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    (document.getElementById('post-slug') as HTMLInputElement).value = slug;
+  document.getElementById('manage-category-btn')?.addEventListener('click', () => {
+    catForm.reset();
+    catIdInput.value = '';
+    catModal.classList.remove('hidden');
   });
 
-  document.getElementById('post-form')?.addEventListener('submit', async (e) => {
+  document.getElementById('close-category-modal')?.addEventListener('click', () => {
+    catModal.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.edit-cat-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      catIdInput.value = el.dataset.id!;
+      (document.getElementById('cat-name') as HTMLInputElement).value = el.dataset.name!;
+    });
+  });
+
+  document.querySelectorAll('.delete-cat-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Yakin ingin menghapus kategori ini?')) return;
+      const el = e.currentTarget as HTMLElement;
+      const res = await fetch(`/api/blog/categories/${el.dataset.id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus kategori');
+    });
+  });
+
+  catForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Menyimpan...';
-
-    try {
-      const fd = new FormData(form);
-      const data: any = Object.fromEntries(fd);
-      
-      const fileInput = document.getElementById('image-file') as HTMLInputElement;
-      if (fileInput.files && fileInput.files.length > 0) {
-        const uploadFd = new FormData();
-        uploadFd.append('file', fileInput.files[0]);
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          data.image = uploadData.url;
-        } else {
-          throw new Error('Gagal mengunggah gambar');
-        }
-      }
-
-      data.published = fd.get('published') === 'true';
-      if (!data.slug) data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      
-      const res = await fetch('/api/blog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-      if (res.ok) {
-        location.reload(); 
-      } else { 
-        const err = await res.json(); 
-        throw new Error(err.error || 'Gagal menyimpan'); 
-      }
-    } catch (error: any) {
-      alert(error.message || 'Terjadi kesalahan');
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Simpan';
-    }
+    const data = Object.fromEntries(new FormData(catForm));
+    const isEdit = !!data.id;
+    const url = isEdit ? `/api/blog/categories/${data.id}` : '/api/blog/categories';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) location.reload(); else alert('Gagal menyimpan kategori');
   });
 
   document.querySelectorAll('.delete-post').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Hapus artikel ini?')) return;
-      alert('Tambahkan DELETE /api/blog/[id] untuk fitur ini');
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Hapus artikel ini secara permanen?')) return;
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      const res = await fetch(`/api/blog/${id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus artikel');
     });
   });
 </script>

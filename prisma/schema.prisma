@@ -340,3 +340,11 @@ model CartItem {
 
   @@map("cart_items")
 }
+
+model BlogCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("blog_categories")
+}
