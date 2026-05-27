@@ -4,6 +4,8 @@ import prisma from '../../../lib/prisma';
 
 const statusFilter = Astro.url.searchParams.get('status') || '';
 const search = Astro.url.searchParams.get('search') || '';
+const startDate = Astro.url.searchParams.get('startDate') || '';
+const endDate = Astro.url.searchParams.get('endDate') || '';
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const limit = 20;
 
@@ -14,6 +16,15 @@ if (search) where.OR = [
   { customerEmail: { contains: search, mode: 'insensitive' } },
   { id: { contains: search } },
 ];
+if (startDate || endDate) {
+  where.date = {};
+  if (startDate) where.date.gte = new Date(startDate);
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    where.date.lte = end;
+  }
+}
 
 const [orders, total] = await Promise.all([
   prisma.order.findMany({ where, orderBy: { date: 'desc' }, skip: (page - 1) * limit, take: limit }),
@@ -41,8 +52,16 @@ const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelle
           {statuses.map(s => <option value={s} selected={statusFilter === s}>{s || 'Semua Status'}</option>)}
         </select>
       </div>
+      <div>
+        <label class="label text-xs">Tanggal Mulai</label>
+        <input name="startDate" value={startDate} type="date" class="input-field text-sm py-2" />
+      </div>
+      <div>
+        <label class="label text-xs">Tanggal Akhir</label>
+        <input name="endDate" value={endDate} type="date" class="input-field text-sm py-2" />
+      </div>
       <button type="submit" class="btn-primary text-sm py-2">Filter</button>
-      {(search || statusFilter) && <a href="/admin/orders" class="btn-ghost text-sm py-2">Reset</a>}
+      {(search || statusFilter || startDate || endDate) && <a href="/admin/orders" class="btn-ghost text-sm py-2">Reset</a>}
     </form>
   </div>
 
@@ -86,6 +105,8 @@ const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelle
           const params = new URLSearchParams();
           if (search) params.set('search', search);
           if (statusFilter) params.set('status', statusFilter);
+          if (startDate) params.set('startDate', startDate);
+          if (endDate) params.set('endDate', endDate);
           params.set('page', String(p));
           return <a href={`/admin/orders?${params}`} class={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${p === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{p}</a>;
         })}
