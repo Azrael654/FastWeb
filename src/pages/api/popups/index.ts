@@ -18,11 +18,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const body = await request.json();
     const popup = await prisma.popup.create({
       data: {
+        type: body.type || 'full',
         title: body.title,
-        content: body.content || null,
+        content: body.type === 'image_only' ? null : (body.content || null),
         imageUrl: body.imageUrl || null,
         linkUrl: body.linkUrl || null,
-        linkText: body.linkText || null,
+        linkText: body.type === 'image_only' ? null : (body.linkText || null),
         isActive: body.isActive === true,
         displayMode: body.displayMode || 'once',
         delaySeconds: Number(body.delaySeconds) || 0,

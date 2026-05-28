@@ -8,28 +8,47 @@ const popups = await prisma.popup.findMany({ orderBy: { createdAt: 'desc' } });
   <div class="flex items-center justify-between mb-5">
     <div>
       <h2 class="text-lg font-bold text-gray-900">Popup Builder</h2>
-      <p class="text-sm text-gray-500">Kelola pop-up promosi atau pengumuman di halaman depan</p>
+      <p class="text-sm text-gray-500">Kelola pop-up promosi di halaman depan. Tersedia 2 tipe: <strong>Full</strong> (judul + teks + tombol) dan <strong>Hanya Gambar</strong> (banner klikable).</p>
     </div>
-    <button id="add-btn" class="btn-primary text-sm">+ Buat Popup Baru</button>
+    <div class="flex gap-2">
+      <button id="add-full-btn" class="btn-primary text-sm">+ Popup Full</button>
+      <button id="add-image-btn" class="btn-secondary text-sm border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-medium transition-colors">+ Hanya Gambar</button>
+    </div>
   </div>
 
   <div class="card mb-8">
     <div class="table-wrapper">
       <table class="data-table">
-        <thead><tr><th>Judul / Preview</th><th>Tampil</th><th>Delay</th><th>Status</th><th>Aksi</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Preview</th>
+            <th>Tipe</th>
+            <th>Tampil</th>
+            <th>Delay</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
         <tbody>
           {popups.map(p => (
             <tr>
               <td>
                 <div class="flex items-center gap-3">
-                  {p.imageUrl && <img src={p.imageUrl} class="w-10 h-10 rounded object-cover" />}
+                  {p.imageUrl && <img src={p.imageUrl} class="w-12 h-10 rounded object-cover border border-gray-200" />}
                   <div>
                     <p class="font-medium text-sm text-gray-900">{p.title}</p>
-                    {p.linkUrl && <p class="text-xs text-blue-600 hover:underline">{p.linkUrl}</p>}
+                    {p.linkUrl && <p class="text-xs text-blue-600 truncate max-w-[160px]">{p.linkUrl}</p>}
                   </div>
                 </div>
               </td>
-              <td class="text-sm text-gray-600 capitalize">{p.displayMode === 'once' ? 'Sekali (Close = Hilang)' : p.displayMode === 'session' ? 'Per Sesi' : 'Selalu Tampil'}</td>
+              <td>
+                <span class={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${p.type === 'image_only' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {p.type === 'image_only' ? '🖼 Hanya Gambar' : '📋 Full'}
+                </span>
+              </td>
+              <td class="text-sm text-gray-600 capitalize">
+                {p.displayMode === 'once' ? 'Sekali' : p.displayMode === 'session' ? 'Per Sesi' : 'Selalu'}
+              </td>
               <td class="text-sm text-gray-600">{p.delaySeconds} dtk</td>
               <td>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -45,78 +64,150 @@ const popups = await prisma.popup.findMany({ orderBy: { createdAt: 'desc' } });
               </td>
             </tr>
           ))}
-          {popups.length === 0 && <tr><td colspan="5" class="text-center py-8 text-gray-400">Belum ada popup</td></tr>}
+          {popups.length === 0 && <tr><td colspan="6" class="text-center py-8 text-gray-400">Belum ada popup</td></tr>}
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div id="popup-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <!-- ============================================================ -->
+  <!-- MODAL FULL POPUP                                             -->
+  <!-- ============================================================ -->
+  <div id="popup-modal-full" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-gray-900 text-lg" id="modal-title">Buat Popup Baru</h3>
-        <button id="close-modal" class="text-gray-400 hover:text-gray-600">&times;</button>
-      </div>
-      
-      <form id="popup-form" class="space-y-4">
-        <input type="hidden" name="id" id="form-id" />
-        
         <div>
-          <label class="label">Judul (Internal / Heading) *</label>
-          <input name="title" id="form-title-input" required class="input-field" placeholder="Promo Lebaran" />
+          <h3 class="font-bold text-gray-900 text-lg" id="modal-full-title">Buat Popup Full</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Menampilkan judul, deskripsi, gambar, dan tombol aksi</p>
         </div>
-        
+        <button id="close-full-modal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+
+      <form id="popup-form-full" class="space-y-4">
+        <input type="hidden" name="id" id="full-id" />
+        <input type="hidden" name="type" value="full" />
+
         <div>
-          <label class="label">Gambar Banner</label>
-          <div class="flex gap-4 items-end">
-            <div class="flex-1">
-              <input type="file" id="image-file" accept="image/*" class="input-field py-1.5" />
-              <input type="hidden" name="imageUrl" id="image-url" />
-            </div>
-            <img id="image-preview" src="" class="hidden w-16 h-16 rounded object-cover border border-gray-200" />
-          </div>
-          <p class="text-xs text-gray-500 mt-1">Gunakan gambar persegi atau proporsional. Jika ada teks promo di gambar, kosongkan Deskripsi Singkat di bawah.</p>
+          <label class="label">Judul (Heading Popup) *</label>
+          <input name="title" id="full-title" required class="input-field" placeholder="Promo Spesial Lebaran!" />
         </div>
 
         <div>
-          <label class="label">Deskripsi Singkat (Opsional)</label>
-          <textarea name="content" id="form-content" rows="3" class="input-field text-sm" placeholder="Diskon 50% untuk produk banner..."></textarea>
+          <label class="label">Gambar Banner (Opsional)</label>
+          <div class="flex gap-3 items-end">
+            <div class="flex-1">
+              <input type="file" id="full-image-file" accept="image/*" class="input-field py-1.5" />
+              <input type="hidden" name="imageUrl" id="full-image-url" />
+            </div>
+            <img id="full-image-preview" src="" class="hidden w-16 h-16 rounded object-cover border border-gray-200" />
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Gambar akan tampil di atas judul</p>
+        </div>
+
+        <div>
+          <label class="label">Deskripsi (Opsional)</label>
+          <textarea name="content" id="full-content" rows="3" class="input-field text-sm" placeholder="Dapatkan diskon 50% untuk semua produk banner..."></textarea>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="label">Teks Tombol Aksi (Opsional)</label>
-            <input name="linkText" id="form-linkText" class="input-field" placeholder="Belanja Sekarang" />
+            <label class="label">Teks Tombol Aksi</label>
+            <input name="linkText" id="full-linkText" class="input-field" placeholder="Belanja Sekarang" />
           </div>
           <div>
-            <label class="label">URL Tujuan</label>
-            <input name="linkUrl" id="form-linkUrl" class="input-field" placeholder="/shop atau https://..." />
+            <label class="label">URL Tujuan Tombol</label>
+            <input name="linkUrl" id="full-linkUrl" class="input-field" placeholder="/shop atau https://..." />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="label">Mode Tampil</label>
-            <select name="displayMode" id="form-displayMode" class="input-field">
-              <option value="once">Sekali (Jika di-close tidak muncul lagi)</option>
-              <option value="session">Per Sesi (Muncul 1x per kunjungan web)</option>
+            <select name="displayMode" id="full-displayMode" class="input-field">
+              <option value="once">Sekali (tidak muncul lagi setelah ditutup)</option>
+              <option value="session">Per Sesi (1x per kunjungan)</option>
               <option value="always">Selalu Tampil tiap buka halaman</option>
             </select>
           </div>
           <div>
             <label class="label">Delay Tampil (Detik)</label>
-            <input type="number" name="delaySeconds" id="form-delay" class="input-field" value="2" min="0" />
+            <input type="number" name="delaySeconds" id="full-delay" class="input-field" value="2" min="0" />
           </div>
         </div>
 
         <div class="flex items-center gap-2 pt-2 border-t border-gray-100">
-          <input type="checkbox" name="isActive" id="form-isActive" value="true" class="w-4 h-4 text-blue-600 rounded" />
-          <label for="form-isActive" class="text-sm font-medium text-gray-700">Aktifkan popup ini</label>
+          <input type="checkbox" name="isActive" id="full-isActive" value="true" class="w-4 h-4 text-blue-600 rounded" />
+          <label for="full-isActive" class="text-sm font-medium text-gray-700">Aktifkan popup ini</label>
         </div>
 
-        <div class="flex gap-3 pt-4">
-          <button type="submit" class="btn-primary flex-1">Simpan</button>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1" id="full-submit-btn">Simpan Popup</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL IMAGE-ONLY POPUP                                       -->
+  <!-- ============================================================ -->
+  <div id="popup-modal-image" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="font-bold text-gray-900 text-lg" id="modal-image-title">Buat Popup Gambar</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Hanya menampilkan gambar. Gambar bisa diklik menuju URL tertentu.</p>
+        </div>
+        <button id="close-image-modal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+
+      <form id="popup-form-image" class="space-y-4">
+        <input type="hidden" name="id" id="img-id" />
+        <input type="hidden" name="type" value="image_only" />
+
+        <div>
+          <label class="label">Nama Internal (tidak tampil ke user) *</label>
+          <input name="title" id="img-title" required class="input-field" placeholder="Banner Promo Mei 2026" />
+        </div>
+
+        <div>
+          <label class="label">Gambar Banner *</label>
+          <div class="flex gap-3 items-end">
+            <div class="flex-1">
+              <input type="file" id="img-image-file" accept="image/*" class="input-field py-1.5" />
+              <input type="hidden" name="imageUrl" id="img-image-url" />
+            </div>
+            <img id="img-image-preview" src="" class="hidden w-20 h-16 rounded object-cover border border-gray-200" />
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Disarankan rasio 4:3 atau 16:9 untuk tampilan terbaik</p>
+        </div>
+
+        <div>
+          <label class="label">URL Tujuan (Opsional — jika diisi, klik gambar akan membuka URL ini)</label>
+          <input name="linkUrl" id="img-linkUrl" class="input-field" placeholder="/shop/promo atau https://wa.me/62..." />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label">Mode Tampil</label>
+            <select name="displayMode" id="img-displayMode" class="input-field">
+              <option value="once">Sekali (tidak muncul lagi setelah ditutup)</option>
+              <option value="session">Per Sesi (1x per kunjungan)</option>
+              <option value="always">Selalu Tampil tiap buka halaman</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Delay Tampil (Detik)</label>
+            <input type="number" name="delaySeconds" id="img-delay" class="input-field" value="1" min="0" />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-2 border-t border-gray-100">
+          <input type="checkbox" name="isActive" id="img-isActive" value="true" class="w-4 h-4 text-blue-600 rounded" />
+          <label for="img-isActive" class="text-sm font-medium text-gray-700">Aktifkan popup ini</label>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1" id="img-submit-btn">Simpan Popup Gambar</button>
         </div>
       </form>
     </div>
@@ -124,59 +215,159 @@ const popups = await prisma.popup.findMany({ orderBy: { createdAt: 'desc' } });
 </AdminLayout>
 
 <script>
-  const modal = document.getElementById('popup-modal')!;
-  const form = document.getElementById('popup-form') as HTMLFormElement;
-  const idInput = document.getElementById('form-id') as HTMLInputElement;
-  const imgUrl = document.getElementById('image-url') as HTMLInputElement;
-  const imgPreview = document.getElementById('image-preview') as HTMLImageElement;
-  const modalTitle = document.getElementById('modal-title')!;
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-  document.getElementById('add-btn')?.addEventListener('click', () => {
-    form.reset();
-    idInput.value = '';
-    imgUrl.value = '';
-    imgPreview.src = '';
-    imgPreview.classList.add('hidden');
-    modalTitle.textContent = 'Buat Popup Baru';
-    modal.classList.remove('hidden');
-  });
+  function setupImageUpload(fileInputId: string, urlInputId: string, previewId: string) {
+    const fileInput = document.getElementById(fileInputId) as HTMLInputElement;
+    const urlInput  = document.getElementById(urlInputId)  as HTMLInputElement;
+    const preview   = document.getElementById(previewId)   as HTMLImageElement;
 
-  document.getElementById('close-modal')?.addEventListener('click', () => {
-    modal.classList.add('hidden');
-  });
+    fileInput?.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          preview.src = e.target?.result as string;
+          preview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      }
+    });
+
+    return { fileInput, urlInput, preview };
+  }
+
+  async function uploadFile(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('Gagal mengunggah gambar');
+    const data = await res.json();
+    return data.url;
+  }
+
+  async function savePopup(formEl: HTMLFormElement, submitBtnId: string) {
+    const submitBtn = document.getElementById(submitBtnId) as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+
+    try {
+      const fd = new FormData(formEl);
+      const data: any = Object.fromEntries(fd);
+      data.isActive = fd.get('isActive') === 'true';
+
+      // Find file input within the form
+      const fileInput = formEl.querySelector('input[type="file"]') as HTMLInputElement;
+      if (fileInput?.files && fileInput.files.length > 0) {
+        data.imageUrl = await uploadFile(fileInput.files[0]);
+      }
+
+      const isEdit = !!data.id;
+      const url    = isEdit ? `/api/popups/${data.id}` : '/api/popups';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        location.reload();
+      } else {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal menyimpan popup');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Simpan';
+    }
+  }
+
+  // ── Full Popup Modal ────────────────────────────────────────────────────────
+
+  const fullModal  = document.getElementById('popup-modal-full')!;
+  const fullForm   = document.getElementById('popup-form-full') as HTMLFormElement;
+
+  setupImageUpload('full-image-file', 'full-image-url', 'full-image-preview');
+
+  function openFullModal(data?: any) {
+    fullForm.reset();
+    (document.getElementById('full-id') as HTMLInputElement).value = data?.id ?? '';
+    if (data) {
+      (document.getElementById('full-title') as HTMLInputElement).value        = data.title ?? '';
+      (document.getElementById('full-content') as HTMLTextAreaElement).value   = data.content ?? '';
+      (document.getElementById('full-linkText') as HTMLInputElement).value     = data.linkText ?? '';
+      (document.getElementById('full-linkUrl') as HTMLInputElement).value      = data.linkUrl ?? '';
+      (document.getElementById('full-displayMode') as HTMLSelectElement).value = data.displayMode ?? 'once';
+      (document.getElementById('full-delay') as HTMLInputElement).value        = String(data.delaySeconds ?? 2);
+      (document.getElementById('full-isActive') as HTMLInputElement).checked   = data.isActive ?? false;
+      const urlInput  = document.getElementById('full-image-url') as HTMLInputElement;
+      const preview   = document.getElementById('full-image-preview') as HTMLImageElement;
+      urlInput.value  = data.imageUrl ?? '';
+      if (data.imageUrl) { preview.src = data.imageUrl; preview.classList.remove('hidden'); }
+      else { preview.src = ''; preview.classList.add('hidden'); }
+      document.getElementById('modal-full-title')!.textContent = 'Edit Popup Full';
+    } else {
+      document.getElementById('modal-full-title')!.textContent = 'Buat Popup Full';
+    }
+    fullModal.classList.remove('hidden');
+  }
+
+  document.getElementById('add-full-btn')?.addEventListener('click', () => openFullModal());
+  document.getElementById('close-full-modal')?.addEventListener('click', () => fullModal.classList.add('hidden'));
+  fullForm?.addEventListener('submit', (e) => { e.preventDefault(); savePopup(fullForm, 'full-submit-btn'); });
+
+  // ── Image-Only Popup Modal ─────────────────────────────────────────────────
+
+  const imgModal = document.getElementById('popup-modal-image')!;
+  const imgForm  = document.getElementById('popup-form-image') as HTMLFormElement;
+
+  setupImageUpload('img-image-file', 'img-image-url', 'img-image-preview');
+
+  function openImageModal(data?: any) {
+    imgForm.reset();
+    (document.getElementById('img-id') as HTMLInputElement).value = data?.id ?? '';
+    if (data) {
+      (document.getElementById('img-title') as HTMLInputElement).value        = data.title ?? '';
+      (document.getElementById('img-linkUrl') as HTMLInputElement).value      = data.linkUrl ?? '';
+      (document.getElementById('img-displayMode') as HTMLSelectElement).value = data.displayMode ?? 'once';
+      (document.getElementById('img-delay') as HTMLInputElement).value        = String(data.delaySeconds ?? 1);
+      (document.getElementById('img-isActive') as HTMLInputElement).checked   = data.isActive ?? false;
+      const urlInput  = document.getElementById('img-image-url') as HTMLInputElement;
+      const preview   = document.getElementById('img-image-preview') as HTMLImageElement;
+      urlInput.value  = data.imageUrl ?? '';
+      if (data.imageUrl) { preview.src = data.imageUrl; preview.classList.remove('hidden'); }
+      else { preview.src = ''; preview.classList.add('hidden'); }
+      document.getElementById('modal-image-title')!.textContent = 'Edit Popup Gambar';
+    } else {
+      document.getElementById('modal-image-title')!.textContent = 'Buat Popup Gambar';
+    }
+    imgModal.classList.remove('hidden');
+  }
+
+  document.getElementById('add-image-btn')?.addEventListener('click', () => openImageModal());
+  document.getElementById('close-image-modal')?.addEventListener('click', () => imgModal.classList.add('hidden'));
+  imgForm?.addEventListener('submit', (e) => { e.preventDefault(); savePopup(imgForm, 'img-submit-btn'); });
+
+  // ── Shared: Edit / Delete / Toggle ─────────────────────────────────────────
 
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const el = e.currentTarget as HTMLElement;
+      const el   = e.currentTarget as HTMLElement;
       const data = JSON.parse(el.dataset.popup!);
-      
-      idInput.value = data.id;
-      (document.getElementById('form-title-input') as HTMLInputElement).value = data.title;
-      (document.getElementById('form-content') as HTMLInputElement).value = data.content || '';
-      (document.getElementById('form-linkText') as HTMLInputElement).value = data.linkText || '';
-      (document.getElementById('form-linkUrl') as HTMLInputElement).value = data.linkUrl || '';
-      (document.getElementById('form-displayMode') as HTMLSelectElement).value = data.displayMode;
-      (document.getElementById('form-delay') as HTMLInputElement).value = data.delaySeconds;
-      (document.getElementById('form-isActive') as HTMLInputElement).checked = data.isActive;
-      
-      imgUrl.value = data.imageUrl || '';
-      if (data.imageUrl) {
-        imgPreview.src = data.imageUrl;
-        imgPreview.classList.remove('hidden');
+      if (data.type === 'image_only') {
+        openImageModal(data);
       } else {
-        imgPreview.src = '';
-        imgPreview.classList.add('hidden');
+        openFullModal(data);
       }
-      
-      modalTitle.textContent = 'Edit Popup';
-      modal.classList.remove('hidden');
     });
   });
 
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       if (!confirm('Yakin ingin menghapus popup ini?')) return;
-      const el = e.currentTarget as HTMLElement;
+      const el  = e.currentTarget as HTMLElement;
       const res = await fetch(`/api/popups/${el.dataset.id}`, { method: 'DELETE' });
       if (res.ok) location.reload(); else alert('Gagal menghapus popup');
     });
@@ -184,58 +375,20 @@ const popups = await prisma.popup.findMany({ orderBy: { createdAt: 'desc' } });
 
   document.querySelectorAll('.toggle-active').forEach(toggle => {
     toggle.addEventListener('change', async (e) => {
-      const el = e.currentTarget as HTMLInputElement;
+      const el  = e.currentTarget as HTMLInputElement;
       const res = await fetch(`/api/popups/${el.dataset.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: el.checked })
+        body: JSON.stringify({ isActive: el.checked }),
       });
-      if (!res.ok) {
-        el.checked = !el.checked;
-        alert('Gagal merubah status');
-      }
+      if (!res.ok) { el.checked = !el.checked; alert('Gagal merubah status'); }
     });
   });
 
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Menyimpan...';
-
-    try {
-      const fd = new FormData(form);
-      const data: any = Object.fromEntries(fd);
-      data.isActive = fd.get('isActive') === 'true';
-
-      const fileInput = document.getElementById('image-file') as HTMLInputElement;
-      if (fileInput.files && fileInput.files.length > 0) {
-        const uploadFd = new FormData();
-        uploadFd.append('file', fileInput.files[0]);
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFd });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          data.imageUrl = uploadData.url;
-        } else {
-          throw new Error('Gagal mengunggah gambar');
-        }
-      }
-
-      const isEdit = !!data.id;
-      const url = isEdit ? `/api/popups/${data.id}` : '/api/popups';
-      const method = isEdit ? 'PUT' : 'POST';
-      
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-      if (res.ok) {
-        location.reload();
-      } else { 
-        const err = await res.json(); 
-        throw new Error(err.error || 'Gagal menyimpan popup'); 
-      }
-    } catch (error: any) {
-      alert(error.message || 'Terjadi kesalahan');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Simpan';
-    }
+  // Close modals on backdrop click
+  [fullModal, imgModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
   });
 </script>

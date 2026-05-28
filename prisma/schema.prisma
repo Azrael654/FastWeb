@@ -351,6 +351,7 @@ model BlogCategory {
 
 model Popup {
   id           String   @id @default(cuid())
+  type         String   @default("full") // full | image_only
   title        String
   content      String?
   imageUrl     String?

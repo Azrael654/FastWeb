@@ -11,11 +11,12 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     const popup = await prisma.popup.update({
       where: { id: params.id },
       data: {
+        type: body.type !== undefined ? body.type : undefined,
         title: body.title,
-        content: body.content !== undefined ? body.content : undefined,
+        content: body.content !== undefined ? (body.type === 'image_only' ? null : body.content) : undefined,
         imageUrl: body.imageUrl !== undefined ? body.imageUrl : undefined,
         linkUrl: body.linkUrl !== undefined ? body.linkUrl : undefined,
-        linkText: body.linkText !== undefined ? body.linkText : undefined,
+        linkText: body.linkText !== undefined ? (body.type === 'image_only' ? null : body.linkText) : undefined,
         isActive: body.isActive !== undefined ? body.isActive === true : undefined,
         displayMode: body.displayMode,
         delaySeconds: body.delaySeconds !== undefined ? Number(body.delaySeconds) : undefined,
