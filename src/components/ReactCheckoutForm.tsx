@@ -19,7 +19,7 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
   const [couponError, setCouponError] = useState('');
   
   const subtotal = items.reduce((sum: number, item: any) => sum + item.price * item.qty, 0);
-  const shippingFee = shippingMethod === 'dikirim' ? 15000 : 0; // Flat rate 15k for courier, 0 for pickup
+  const shippingFee = 0; // Ongkir dihitung admin nanti jika dikirim
   const total = subtotal + shippingFee - discount;
 
   const handleApplyCoupon = async () => {
@@ -153,7 +153,7 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
               <input type="radio" name="shippingMethodRadio" value="dikirim" checked={shippingMethod === 'dikirim'} onChange={(e) => setShippingMethod(e.target.value as any)} className="mt-1 w-4 h-4 text-blue-600" />
               <div>
                 <p className="font-semibold text-gray-900 text-sm">Dikirim Kurir</p>
-                <p className="text-xs text-gray-500 mt-1">Pesanan akan dikirim ke alamat Anda (Flat Rp 15.000)</p>
+                <p className="text-xs text-gray-500 mt-1">Pesanan akan dikirim ke alamat Anda (Biaya ongkir akan diinformasikan oleh Admin)</p>
               </div>
             </label>
             <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${shippingMethod === 'ambil' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}>
@@ -271,7 +271,7 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
             <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>Rp {subtotal.toLocaleString('id')}</span></div>
             <div className="flex justify-between text-gray-600">
               <span>Pengiriman ({shippingMethod === 'dikirim' ? 'Kurir' : 'Ambil di Toko'})</span>
-              <span>{shippingFee > 0 ? `Rp ${shippingFee.toLocaleString('id')}` : 'Gratis'}</span>
+              <span>{shippingMethod === 'dikirim' ? 'Dihitung admin' : 'Gratis'}</span>
             </div>
             {discount > 0 && <div className="flex justify-between text-green-600"><span>Diskon ({couponCode})</span><span>-Rp {discount.toLocaleString('id')}</span></div>}
             <div className="flex justify-between font-bold text-xl text-gray-900 pt-3 border-t border-gray-100">

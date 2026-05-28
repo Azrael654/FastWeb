@@ -63,7 +63,15 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     return new Response(JSON.stringify(order), { status: 200 });
   }
 
-  // Normal update (e.g. uploading proof without changing status, or updating from processing -> shipped)
-  const order = await prisma.order.update({ where: { id: params.id }, data: body });
+  // Normal update (e.g. uploading proof without changing status, or updating from processing -> shipped, or updating shipping fee)
+  const updateData: any = { ...body };
+  
+  if (body.shippingFee !== undefined) {
+    const fee = Number(body.shippingFee);
+    updateData.shippingFee = fee;
+    updateData.total = Number(existingOrder.subtotal) + fee - Number(existingOrder.discount);
+  }
+
+  const order = await prisma.order.update({ where: { id: params.id }, data: updateData });
   return new Response(JSON.stringify(order), { status: 200 });
 };
