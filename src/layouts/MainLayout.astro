@@ -3,8 +3,10 @@ import '../styles/global.css';
 import Navbar from '../components/storefront/Navbar.astro';
 import Footer from '../components/storefront/Footer.astro';
 import { getSessionUser } from '../lib/auth';
+import prisma from '../lib/prisma';
 
 const user = getSessionUser(Astro.cookies);
+const activePopups = await prisma.popup.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
 
 interface Props {
   title?: string;
@@ -41,5 +43,94 @@ const {
       <slot />
     </main>
     <Footer />
+
+    <!-- Popups -->
+    {activePopups.length > 0 && (
+      <div id="store-popups-data" class="hidden" data-popups={JSON.stringify(activePopups)}></div>
+    )}
+    
+    <div id="store-popup-container" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+      <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden relative transform scale-95 transition-transform duration-300" id="store-popup-card">
+        <button id="store-popup-close" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/10 hover:bg-black/20 text-gray-800 rounded-full transition-colors z-10">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <div id="store-popup-content-wrapper"></div>
+      </div>
+    </div>
+
+    <script>
+      const popupsDataEl = document.getElementById('store-popups-data');
+      if (popupsDataEl) {
+        const popups = JSON.parse(popupsDataEl.dataset.popups || '[]');
+        const container = document.getElementById('store-popup-container')!;
+        const card = document.getElementById('store-popup-card')!;
+        const contentWrapper = document.getElementById('store-popup-content-wrapper')!;
+        const closeBtn = document.getElementById('store-popup-close')!;
+        
+        let currentPopup: any = null;
+
+        const showPopup = (p: any) => {
+          currentPopup = p;
+          
+          let html = '';
+          if (p.imageUrl) {
+            html += `<img src="${p.imageUrl}" class="w-full object-cover" style="max-height: 400px;" alt="${p.title}" />`;
+          }
+          html += `<div class="p-6 text-center">`;
+          if (!p.imageUrl || p.content) {
+            html += `<h2 class="text-2xl font-bold text-gray-900 mb-2">${p.title}</h2>`;
+          }
+          if (p.content) {
+            html += `<p class="text-gray-600 mb-6">${p.content.replace(/\\n/g, '<br/>')}</p>`;
+          }
+          if (p.linkUrl) {
+            html += `<a href="${p.linkUrl}" class="inline-block btn-primary px-8">${p.linkText || 'Cek Sekarang'}</a>`;
+          }
+          html += `</div>`;
+          
+          contentWrapper.innerHTML = html;
+          
+          container.classList.remove('hidden');
+          // small delay for transition
+          setTimeout(() => {
+            container.classList.remove('opacity-0');
+            card.classList.remove('scale-95');
+          }, 50);
+
+          if (p.displayMode === 'session') {
+            sessionStorage.setItem(`popup_${p.id}`, 'shown');
+          }
+        };
+
+        const closePopup = () => {
+          container.classList.add('opacity-0');
+          card.classList.add('scale-95');
+          setTimeout(() => {
+            container.classList.add('hidden');
+          }, 300);
+          
+          if (currentPopup && currentPopup.displayMode === 'once') {
+            localStorage.setItem(`popup_${currentPopup.id}`, 'shown');
+          }
+        };
+
+        closeBtn.addEventListener('click', closePopup);
+        container.addEventListener('click', (e) => {
+          if (e.target === container) closePopup();
+        });
+
+        // Find a popup to show
+        const popupToShow = popups.find((p: any) => {
+          if (p.displayMode === 'always') return true;
+          if (p.displayMode === 'session' && !sessionStorage.getItem(`popup_${p.id}`)) return true;
+          if (p.displayMode === 'once' && !localStorage.getItem(`popup_${p.id}`)) return true;
+          return false;
+        });
+
+        if (popupToShow) {
+          setTimeout(() => showPopup(popupToShow), (popupToShow.delaySeconds || 0) * 1000);
+        }
+      }
+    </script>
   </body>
 </html>

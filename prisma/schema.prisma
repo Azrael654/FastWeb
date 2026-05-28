@@ -348,3 +348,19 @@ model BlogCategory {
 
   @@map("blog_categories")
 }
+
+model Popup {
+  id           String   @id @default(cuid())
+  title        String
+  content      String?
+  imageUrl     String?
+  linkUrl      String?
+  linkText     String?
+  isActive     Boolean  @default(false)
+  displayMode  String   @default("once") // once, session, always
+  delaySeconds Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("popups")
+}
