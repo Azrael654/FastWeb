@@ -5,6 +5,8 @@ import prisma from '../../lib/prisma';
 const now = new Date();
 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+const user = Astro.locals.user as any;
+
 const [totalOrders, pendingOrders, monthStats, recentOrders, accounts, lowStock] = await Promise.all([
   prisma.order.count(),
   prisma.order.count({ where: { status: 'pending' } }),
@@ -122,11 +124,11 @@ const statusColor: Record<string, string> = {
         <h2 class="font-bold text-gray-900 mb-4">Akses Cepat</h2>
         <div class="grid grid-cols-2 gap-2">
           {[
-            { href: '/admin/orders', label: 'Pesanan', icon: '📦' },
-            { href: '/admin/products', label: 'Produk', icon: '🛍️' },
-            { href: '/admin/inventory', label: 'Inventori', icon: '📋' },
-            { href: '/admin/blog', label: 'Blog', icon: '✍️' },
-          ].map(item => (
+            { href: '/admin/orders', label: 'Pesanan', icon: '📦', key: 'orders' },
+            { href: '/admin/products', label: 'Produk', icon: '🛍️', key: 'products' },
+            { href: '/admin/inventory', label: 'Inventori', icon: '📋', key: 'inventory' },
+            { href: '/admin/blog', label: 'Blog', icon: '✍️', key: 'blog' },
+          ].filter(item => user?.isSystem || user?.permissions?.[item.key]?.view).map(item => (
             <a href={item.href} class="flex flex-col items-center justify-center p-3 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-sm font-medium text-gray-600 transition-colors gap-1">
               <span class="text-xl">{item.icon}</span>
               {item.label}

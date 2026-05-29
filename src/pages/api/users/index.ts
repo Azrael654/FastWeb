@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin, hashPassword } from '../../../lib/auth';
+import { checkPermission, hashPassword } from '../../../lib/auth';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const admin = requireAdmin(cookies);
-  if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const canAdd = await checkPermission(cookies, 'users', 'add');
+  if (!canAdd) return new Response(JSON.stringify({ error: 'Unauthorized: Missing add permission for users' }), { status: 403 });
 
   try {
     const data = await request.json();

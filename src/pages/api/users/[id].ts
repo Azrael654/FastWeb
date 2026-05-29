@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin } from '../../../lib/auth';
+import { requireAdmin, checkPermission } from '../../../lib/auth';
 
 export const PUT: APIRoute = async ({ request, params, cookies }) => {
-  const admin = requireAdmin(cookies);
-  if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const canEdit = await checkPermission(cookies, 'users', 'edit');
+  if (!canEdit) return new Response(JSON.stringify({ error: 'Unauthorized: Missing edit permission for users' }), { status: 403 });
   
   try {
     const body = await request.json();
@@ -29,11 +29,12 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
 };
 
 export const DELETE: APIRoute = async ({ params, cookies }) => {
-  const admin = requireAdmin(cookies);
-  if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const canDelete = await checkPermission(cookies, 'users', 'delete');
+  if (!canDelete) return new Response(JSON.stringify({ error: 'Unauthorized: Missing delete permission for users' }), { status: 403 });
   
+  const admin = requireAdmin(cookies);
   // Prevent admin from deleting themselves
-  if (admin.id === params.id) {
+  if (admin && admin.id === params.id) {
     return new Response(JSON.stringify({ error: 'Anda tidak dapat menghapus akun Anda sendiri' }), { status: 400 });
   }
   

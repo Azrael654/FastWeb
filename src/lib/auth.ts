@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import type { AstroCookies } from 'astro';
+import prisma from './prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fastprint_secret_key';
 const COOKIE_NAME = 'fp_session';
@@ -62,8 +63,22 @@ export function requireAuth(cookies: AstroCookies) {
 
 export function requireAdmin(cookies: AstroCookies) {
   const user = getSessionUser(cookies);
-  if (!user || user.role !== 'admin') {
+  // Allow access to admin area for any role except "customer"
+  if (!user || user.role === 'customer') {
     return null;
   }
   return user;
+}
+
+export async function checkPermission(cookies: AstroCookies, module: string, action: string) {
+  const user = requireAdmin(cookies);
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+
+  const role = await prisma.role.findUnique({ where: { name: user.role } });
+  if (!role) return false;
+  if (role.isSystem) return true;
+
+  const perms = (role.permissions || {}) as Record<string, Record<string, boolean>>;
+  return perms?.[module]?.[action] === true;
 }
