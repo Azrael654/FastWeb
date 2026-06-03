@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const search = Astro.url.searchParams.get('search') || '';
+
+const where: any = {
+  AND: [
+    { type: 'message' }
+  ]
+};
+
+if (search) {
+  where.AND.push({
+    OR: [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { company: { contains: search, mode: 'insensitive' } },
+      { notes: { contains: search, mode: 'insensitive' } }
+    ]
+  });
+}
+
+const messages = await prisma.contact.findMany({ where, orderBy: { dateAdded: 'desc' } });
+---
+<AdminLayout title="CRM – Pesan" currentPage="messages">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-gray-900">Pesan Masuk</h2>
+      <p class="text-sm text-gray-500">{messages.length} pesan tersimpan</p>
+    </div>
+  </div>
+
+  <form class="flex flex-col sm:flex-row gap-3 mb-5" action="/admin/crm/messages" method="GET">
+    <input type="text" name="search" value={search} placeholder="Cari nama, email, isi pesan..." class="input-field text-sm flex-1" />
+    <button type="submit" class="btn-primary text-sm px-4">Cari</button>
+    { search && <a href="/admin/crm/messages" class="btn-ghost text-sm px-4 flex items-center justify-center">Reset</a> }
+  </form>
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Nama / Email</th><th>Telepon / Perusahaan</th><th>Pesan</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+        <tbody>
+          {messages.map(m => (
+            <tr>
+              <td>
+                <p class="font-medium text-sm text-gray-900">{m.name}</p>
+                <p class="text-xs text-gray-500">{m.email || '-'}</p>
+              </td>
+              <td>
+                <p class="text-sm text-gray-900">{m.phone || '-'}</p>
+                <p class="text-xs text-gray-500">{m.company || '-'}</p>
+              </td>
+              <td class="text-sm text-gray-600 max-w-sm">
+                <button
+                  class="view-notes-btn text-blue-600 hover:underline text-xs text-left line-clamp-2"
+                  data-name={m.name}
+                  data-notes={m.notes}
+                >
+                  {m.notes && m.notes.length > 80 ? m.notes.slice(0, 80) + '…' : m.notes}
+                </button>
+              </td>
+              <td class="text-xs text-gray-500">{new Date(m.dateAdded).toLocaleDateString('id-ID')}</td>
+              <td>
+                <div class="flex flex-col gap-1 items-start">
+                  <button
+                    data-contact={JSON.stringify(m)}
+                    class="make-contact text-green-600 hover:underline text-xs"
+                  >Jadikan Kontak</button>
+                  <button
+                    data-id={m.id}
+                    class="delete-contact text-red-500 hover:underline text-xs"
+                  >Hapus</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {messages.length === 0 && (
+            <tr>
+              <td colspan="5" class="text-center text-sm text-gray-500 py-6">Belum ada pesan.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Notes Detail Modal -->
+  <div id="notes-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
+      <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+        <h3 id="notes-modal-name" class="font-bold text-gray-900 text-lg"></h3>
+        <button id="close-notes-modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-2">Pesan:</p>
+      <div id="notes-modal-content" class="bg-gray-50 rounded-xl p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto"></div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Make contact
+  document.querySelectorAll('.make-contact').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const el = e.currentTarget as HTMLElement;
+      const contactData = JSON.parse(el.dataset.contact || '{}');
+      if (!confirm(`Tambahkan ${contactData.name} sebagai Kontak (Lead)?`)) return;
+
+      const payload = {
+        ...contactData,
+        type: 'lead'
+      };
+
+      const res = await fetch(`/api/crm/contacts/${contactData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) location.reload(); else alert('Gagal menambahkan ke kontak');
+    });
+  });
+
+  // Delete messages
+  document.querySelectorAll('.delete-contact').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Hapus pesan ini?')) return;
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      const res = await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus');
+    });
+  });
+
+  // View notes modal
+  const notesModal = document.getElementById('notes-modal')!;
+  document.querySelectorAll('.view-notes-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      document.getElementById('notes-modal-name')!.textContent = el.dataset.name || '';
+      document.getElementById('notes-modal-content')!.textContent = el.dataset.notes || '';
+      notesModal.classList.remove('hidden');
+    });
+  });
+  document.getElementById('close-notes-modal')?.addEventListener('click', () =>
+    notesModal.classList.add('hidden'));
+  notesModal.addEventListener('click', (e) => {
+    if (e.target === notesModal) notesModal.classList.add('hidden');
+  });
+</script>

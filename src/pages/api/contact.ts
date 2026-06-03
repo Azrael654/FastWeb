@@ -4,7 +4,7 @@ import prisma from '../../lib/prisma';
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { firstName, lastName, email, phone, message } = body;
+    const { firstName, lastName, email, phone, company, message } = body;
 
     if (!firstName || !email || !message) {
       return new Response(JSON.stringify({ error: 'Nama, email, dan pesan wajib diisi.' }), { status: 400 });
@@ -17,7 +17,8 @@ export const POST: APIRoute = async ({ request }) => {
         name,
         email,
         phone: phone || null,
-        type: 'lead',
+        company: company || null,
+        type: 'message',
         notes: message,
       },
     });

@@ -14,6 +14,7 @@ const navItems = [
   { href: '/admin/inventory', label: 'Inventori', icon: 'archive', key: 'inventory' },
   { href: '/admin/finance', label: 'Keuangan', icon: 'dollar-sign', key: 'finance' },
   { href: '/admin/crm', label: 'CRM', icon: 'users', key: 'crm' },
+  { href: '/admin/crm/messages', label: 'Pesan', icon: 'mail', key: 'messages' },
   { href: '/admin/blog', label: 'Blog', icon: 'file-text', key: 'blog' },
   { href: '/admin/coupons', label: 'Kupon', icon: 'percent', key: 'coupons' },
   { href: '/admin/users', label: 'Pengguna', icon: 'user', key: 'users' },
@@ -25,7 +26,7 @@ const navItems = [
 const visibleNavItems = navItems.filter(item => {
   if (user.isSystem) return true;
   if (item.key === 'overview' || item.key === 'statistics') return true;
-  const modKey = item.key === 'categories' ? 'products' : item.key;
+  const modKey = item.key === 'categories' ? 'products' : item.key === 'messages' ? 'crm' : item.key;
   return user.permissions?.[modKey]?.view === true;
 });
 
@@ -39,6 +40,7 @@ const icons: Record<string, string> = {
   archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
   'dollar-sign': 'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
   users: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z',
+  mail: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
   'file-text': 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
   percent: 'M19 5L5 19M6.5 4.5a2 2 0 100 4 2 2 0 000-4zM17.5 15.5a2 2 0 100 4 2 2 0 000-4z',
   user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 3a4 4 0 100 8 4 4 0 000-8z',
