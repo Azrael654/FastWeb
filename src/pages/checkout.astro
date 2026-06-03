@@ -4,7 +4,12 @@ import ReactCheckoutForm from '../components/ReactCheckoutForm';
 import { getSessionUser } from '../lib/auth';
 import prisma from '../lib/prisma';
 
-const user = getSessionUser(Astro.cookies);
+const sessionUser = getSessionUser(Astro.cookies);
+let user = null;
+if (sessionUser) {
+  user = await prisma.appUser.findUnique({ where: { id: sessionUser.id } });
+}
+
 const paymentMethods = await prisma.paymentMethod.findMany({ 
   where: { isActive: true }, 
   orderBy: { name: 'asc' } 

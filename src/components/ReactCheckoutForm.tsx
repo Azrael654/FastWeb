@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { cartItems, clearCart, loadCart } from '../store/cart';
 
-export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { name: string; email: string; phone?: string; id: string } | null, paymentMethods?: any[] }) {
+export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { name: string; email: string; phone?: string; id: string; address?: string; city?: string; province?: string; postalCode?: string; } | null, paymentMethods?: any[] }) {
   const items = useStore(cartItems);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -171,12 +171,12 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
           <div className="card p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-5">Alamat Pengiriman</h2>
             <div className="space-y-4">
-              <div><label className="label">Alamat Lengkap *</label><textarea name="address" required className="input-field" rows={3}></textarea></div>
+              <div><label className="label">Alamat Lengkap *</label><textarea name="address" required defaultValue={user?.address || ''} className="input-field" rows={3}></textarea></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="label">Kota/Kabupaten *</label><input name="city" required className="input-field" /></div>
-                <div><label className="label">Provinsi *</label><input name="province" required className="input-field" /></div>
+                <div><label className="label">Kota/Kabupaten *</label><input name="city" required defaultValue={user?.city || ''} className="input-field" /></div>
+                <div><label className="label">Provinsi *</label><input name="province" required defaultValue={user?.province || ''} className="input-field" /></div>
               </div>
-              <div><label className="label">Kode Pos *</label><input name="postalCode" required className="input-field w-1/2" /></div>
+              <div><label className="label">Kode Pos *</label><input name="postalCode" required defaultValue={user?.postalCode || ''} className="input-field w-1/2" /></div>
             </div>
           </div>
         )}

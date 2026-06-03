@@ -21,6 +21,9 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
       name: data.name.trim(),
       phone: data.phone?.trim() || null,
       address: data.address?.trim() || null,
+      city: data.city?.trim() || null,
+      province: data.province?.trim() || null,
+      postalCode: data.postalCode?.trim() || null,
       avatar: data.avatar || null,
     };
 
