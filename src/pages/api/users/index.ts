@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { checkPermission, hashPassword } from '../../../lib/auth';
+import { checkPermission, hashPassword, requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   const canAdd = await checkPermission(cookies, 'users', 'add');
@@ -27,6 +28,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       }
     });
     
+    const admin = requireAdmin(cookies);
+    if (admin) {
+      await logActivity(request, {
+        userId: admin.id,
+        userName: admin.name,
+        action: 'CREATE',
+        module: 'users',
+        details: `Mendaftarkan pengguna baru: ${user.name} (${user.role})`,
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, id: user.id }), { status: 201 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });

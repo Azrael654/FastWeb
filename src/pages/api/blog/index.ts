@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ url, cookies }) => {
   const admin = requireAdmin(cookies);
@@ -19,5 +20,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   const body = await request.json();
   const post = await prisma.blogPost.create({ data: body });
+  
+  await logActivity(request, {
+    userId: admin.id,
+    userName: admin.name,
+    action: 'CREATE',
+    module: 'blog',
+    details: `Membuat artikel blog: ${post.title}`,
+  });
+
   return new Response(JSON.stringify(post), { status: 201 });
 };

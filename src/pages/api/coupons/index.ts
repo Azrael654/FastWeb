@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { getSessionUser } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ cookies }) => {
   const user = getSessionUser(cookies);
@@ -34,6 +35,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         enabled: data.enabled !== undefined ? data.enabled : true,
       }
     });
+
+    await logActivity(request, {
+      userId: user.id,
+      userName: user.name,
+      action: 'CREATE',
+      module: 'coupons',
+      details: `Membuat kupon diskon: ${coupon.code}`,
+    });
+
     return new Response(JSON.stringify(coupon), { status: 201 });
   } catch (error: any) {
     if (error.code === 'P2002') {

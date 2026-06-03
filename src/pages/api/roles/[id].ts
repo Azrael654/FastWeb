@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 const SYSTEM_ROLES = ['admin', 'customer'];
 
@@ -32,6 +33,14 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
       }
     });
 
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'UPDATE',
+      module: 'users',
+      details: `Memperbarui role: ${updated.name}`,
+    });
+
     return new Response(JSON.stringify({ success: true, id: updated.id }), { status: 200 });
   } catch (error: any) {
     if (error.code === 'P2002') return new Response(JSON.stringify({ error: 'Nama role sudah digunakan' }), { status: 400 });
@@ -57,6 +66,15 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     }
 
     await prisma.role.delete({ where: { id: params.id } });
+    
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'DELETE',
+      module: 'users',
+      details: `Menghapus role: ${role.name}`,
+    });
+
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });

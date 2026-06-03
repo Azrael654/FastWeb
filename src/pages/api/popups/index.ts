@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ cookies }) => {
   const admin = requireAdmin(cookies);
@@ -29,6 +30,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         delaySeconds: Number(body.delaySeconds) || 0,
       }
     });
+
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'CREATE',
+      module: 'popups',
+      details: `Membuat popup baru: ${popup.title}`,
+    });
+
     return new Response(JSON.stringify(popup), { status: 201 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });

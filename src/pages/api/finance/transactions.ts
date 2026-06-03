@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ url, cookies }) => {
   const admin = requireAdmin(cookies);
@@ -59,5 +60,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
   });
   
+  await logActivity(request, {
+    userId: admin.id,
+    userName: admin.name,
+    action: 'CREATE',
+    module: 'finance',
+    details: `Mencatat transaksi keuangan baru: ${type.toUpperCase()} sebesar ${amount}`,
+  });
+
   return new Response(JSON.stringify(tx), { status: 201 });
 };

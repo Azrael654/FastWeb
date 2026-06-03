@@ -1,0 +1,168 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import prisma from '../../../lib/prisma';
+
+const searchParams = Astro.url.searchParams;
+const startDate = searchParams.get('startDate') || '';
+const endDate = searchParams.get('endDate') || '';
+const filterModule = searchParams.get('module') || '';
+const filterAction = searchParams.get('action') || '';
+const page = parseInt(searchParams.get('page') || '1');
+const limit = 50;
+
+const where: any = {};
+if (startDate || endDate) {
+  where.createdAt = {};
+  if (startDate) where.createdAt.gte = new Date(`${startDate}T00:00:00.000Z`);
+  if (endDate) where.createdAt.lte = new Date(`${endDate}T23:59:59.999Z`);
+}
+if (filterModule) where.module = filterModule;
+if (filterAction) where.action = filterAction;
+
+const [logs, totalLogs] = await Promise.all([
+  prisma.activityLog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: (page - 1) * limit,
+    take: limit,
+  }),
+  prisma.activityLog.count({ where }),
+]);
+
+const totalPages = Math.max(1, Math.ceil(totalLogs / limit));
+
+// Get unique modules and actions for filter dropdowns
+const uniqueModules = await prisma.activityLog.findMany({ select: { module: true }, distinct: ['module'] });
+const uniqueActions = await prisma.activityLog.findMany({ select: { action: true }, distinct: ['action'] });
+
+function getActionColor(action: string) {
+  switch (action) {
+    case 'CREATE': return 'bg-green-100 text-green-700';
+    case 'UPDATE': return 'bg-blue-100 text-blue-700';
+    case 'DELETE': return 'bg-red-100 text-red-700';
+    case 'LOGIN': return 'bg-purple-100 text-purple-700';
+    case 'LOGOUT': return 'bg-gray-100 text-gray-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+}
+---
+
+<AdminLayout title="Log Aktivitas" currentPage="logs">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="text-xl font-bold text-gray-900">Log Aktivitas</h2>
+      <p class="text-sm text-gray-500">Total {totalLogs} catatan aktivitas ditemukan</p>
+    </div>
+  </div>
+
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4 items-end">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Mulai Tanggal</label>
+        <input type="date" name="startDate" value={startDate} class="input-field text-sm py-1.5" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Sampai Tanggal</label>
+        <input type="date" name="endDate" value={endDate} class="input-field text-sm py-1.5" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Modul</label>
+        <select name="module" class="input-field text-sm py-1.5 min-w-[120px]">
+          <option value="">Semua Modul</option>
+          {uniqueModules.map(m => (
+            <option value={m.module} selected={m.module === filterModule} class="capitalize">{m.module}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Aksi</label>
+        <select name="action" class="input-field text-sm py-1.5 min-w-[120px]">
+          <option value="">Semua Aksi</option>
+          {uniqueActions.map(a => (
+            <option value={a.action} selected={a.action === filterAction}>{a.action}</option>
+          ))}
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="btn-primary text-sm py-1.5 px-4">Filter</button>
+        {(startDate || endDate || filterModule || filterAction) && (
+          <a href="/admin/logs" class="btn-ghost text-sm py-1.5 px-4">Reset</a>
+        )}
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-gray-50/50 border-b border-gray-100 text-xs uppercase tracking-wider text-gray-500 font-semibold">
+            <th class="p-4">Waktu</th>
+            <th class="p-4">Pengguna</th>
+            <th class="p-4">Aksi</th>
+            <th class="p-4">Modul</th>
+            <th class="p-4">Detail</th>
+            <th class="p-4">IP Address</th>
+          </tr>
+        </thead>
+        <tbody class="text-sm divide-y divide-gray-100">
+          {logs.map((log) => (
+            <tr class="hover:bg-gray-50/50 transition-colors">
+              <td class="p-4 whitespace-nowrap text-gray-500">
+                {new Date(log.createdAt).toLocaleString('id-ID', {
+                  year: 'numeric', month: 'short', day: 'numeric',
+                  hour: '2-digit', minute: '2-digit', second: '2-digit'
+                })}
+              </td>
+              <td class="p-4">
+                <div class="font-medium text-gray-900">{log.userName || 'Sistem / Guest'}</div>
+                {log.userId && <div class="text-xs text-gray-400 font-mono">{log.userId}</div>}
+              </td>
+              <td class="p-4">
+                <span class={`inline-flex px-2 py-1 rounded text-[10px] font-bold ${getActionColor(log.action)}`}>
+                  {log.action}
+                </span>
+              </td>
+              <td class="p-4">
+                <span class="text-gray-600 font-medium capitalize">{log.module}</span>
+              </td>
+              <td class="p-4 text-gray-700">
+                {log.details}
+              </td>
+              <td class="p-4 text-gray-400 font-mono text-xs">
+                {log.ipAddress || '-'}
+              </td>
+            </tr>
+          ))}
+          {logs.length === 0 && (
+            <tr>
+              <td colspan="6" class="p-8 text-center text-gray-500">
+                Belum ada log aktivitas yang tercatat.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+    
+    {totalPages > 1 && (
+      <div class="p-4 border-t border-gray-100 flex items-center justify-between text-sm">
+        <div class="text-gray-500">
+          Menampilkan halaman {page} dari {totalPages}
+        </div>
+        <div class="flex gap-2">
+          {page > 1 && (
+            <a href={`?page=${page - 1}&startDate=${startDate}&endDate=${endDate}&module=${filterModule}&action=${filterAction}`} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
+              Sebelumnya
+            </a>
+          )}
+          {page < totalPages && (
+            <a href={`?page=${page + 1}&startDate=${startDate}&endDate=${endDate}&module=${filterModule}&action=${filterAction}`} class="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
+              Berikutnya
+            </a>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+</AdminLayout>

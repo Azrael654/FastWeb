@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from "../../../lib/prisma";
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ params }) => {
   try {
@@ -42,17 +43,37 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
       return tx.product.update({ where: { id: params.id }, data: dataToUpdate });
     });
 
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'UPDATE',
+      module: 'products',
+      details: `Memperbarui produk: ${product.name}`,
+    });
+
     return new Response(JSON.stringify(product), { status: 200 });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 400 });
   }
 };
 
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   try {
+    const product = await prisma.product.findUnique({ where: { id: params.id } });
     await prisma.product.delete({ where: { id: params.id } });
+    
+    if (product) {
+      await logActivity(request, {
+        userId: admin.id,
+        userName: admin.name,
+        action: 'DELETE',
+        module: 'products',
+        details: `Menghapus produk: ${product.name}`,
+      });
+    }
+
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (e) {
     return new Response(JSON.stringify({ error: 'Server error' }), { status: 500 });

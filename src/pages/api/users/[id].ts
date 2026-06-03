@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin, checkPermission } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const PUT: APIRoute = async ({ request, params, cookies }) => {
   const canEdit = await checkPermission(cookies, 'users', 'edit');
@@ -22,6 +23,18 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     }
 
     const user = await prisma.appUser.update({ where: { id: params.id }, data: updateData });
+
+    const admin = requireAdmin(cookies);
+    if (admin) {
+      await logActivity(request, {
+        userId: admin.id,
+        userName: admin.name,
+        action: 'UPDATE',
+        module: 'users',
+        details: `Memperbarui data pengguna: ${user.name}`,
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, id: user.id }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
@@ -39,7 +52,19 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
   }
   
   try {
+    const user = await prisma.appUser.findUnique({ where: { id: params.id } });
     await prisma.appUser.delete({ where: { id: params.id } });
+    
+    if (user && admin) {
+      await logActivity(request, {
+        userId: admin.id,
+        userName: admin.name,
+        action: 'DELETE',
+        module: 'users',
+        details: `Menghapus pengguna: ${user.name}`,
+      });
+    }
+
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });

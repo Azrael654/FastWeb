@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ params, cookies }) => {
   const admin = requireAdmin(cookies);
@@ -60,6 +61,14 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
       data: { balance: { increment: existingOrder.total } }
     });
 
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'UPDATE',
+      module: 'orders',
+      details: `Memproses pesanan ${existingOrder.id.slice(-8)} (Status: ${body.status})`,
+    });
+
     return new Response(JSON.stringify(order), { status: 200 });
   }
 
@@ -73,5 +82,14 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
   }
 
   const order = await prisma.order.update({ where: { id: params.id }, data: updateData });
+
+  await logActivity(request, {
+    userId: admin.id,
+    userName: admin.name,
+    action: 'UPDATE',
+    module: 'orders',
+    details: `Memperbarui pesanan ${existingOrder.id.slice(-8)}${body.status ? ` menjadi ${body.status}` : ''}`,
+  });
+
   return new Response(JSON.stringify(order), { status: 200 });
 };

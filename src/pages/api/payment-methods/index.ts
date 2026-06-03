@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async () => {
   const methods = await prisma.paymentMethod.findMany({ orderBy: { name: 'asc' } });
@@ -18,6 +19,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   try {
     const method = await prisma.paymentMethod.create({ data: body });
+
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'CREATE',
+      module: 'config',
+      details: `Menambahkan metode pembayaran: ${method.name}`,
+    });
+
     return new Response(JSON.stringify(method), { status: 201 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });

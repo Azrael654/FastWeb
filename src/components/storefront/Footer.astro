@@ -1,5 +1,7 @@
 ---
+import prisma from '../../lib/prisma';
 
+const categories = await prisma.category.findMany({ where: { showInFooter: true }, take: 5 });
 ---
 
 <footer class="bg-gray-900 text-gray-300">
@@ -68,19 +70,28 @@
         <h4 class="text-white font-semibold mb-4">Layanan</h4>
         <ul class="space-y-2">
           {
-            [
-              "Banner & Spanduk",
-              "Brosur & Flyer",
-              "Kartu Nama",
-              "Stiker & Label",
-              "Buku & Majalah",
+            categories.length > 0 ? categories.map((cat) => (
+              <li>
+                <a
+                  href={`/shop?category=${cat.id}`}
+                  class="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  {cat.name}
+                </a>
+              </li>
+            )) : [
+              { name: "Banner & Spanduk", href: "/shop?search=banner" },
+              { name: "Brosur & Flyer", href: "/shop?search=brosur" },
+              { name: "Kartu Nama", href: "/shop?search=kartu+nama" },
+              { name: "Stiker & Label", href: "/shop?search=stiker" },
+              { name: "Buku & Majalah", href: "/shop?search=buku" },
             ].map((item) => (
               <li>
                 <a
-                  href="/shop"
+                  href={item.href}
                   class="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  {item}
+                  {item.name}
                 </a>
               </li>
             ))

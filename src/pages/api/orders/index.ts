@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin, getSessionUser } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ url, cookies }) => {
   const admin = requireAdmin(cookies);
@@ -41,6 +42,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     if (couponCode) {
       await prisma.coupon.updateMany({ where: { code: couponCode }, data: { usageCount: { increment: 1 } } });
     }
+
+    await logActivity(request, {
+      userId: user?.id,
+      userName: user?.name || customerName,
+      action: 'CREATE',
+      module: 'orders',
+      details: `Membuat pesanan baru: ${order.id.slice(-8)} a.n. ${customerName}`,
+    });
+
     return new Response(JSON.stringify(order), { status: 201 });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 400 });

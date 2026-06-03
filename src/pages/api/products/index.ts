@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ url, cookies }) => {
   try {
@@ -56,6 +57,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         } : {})
       }
     });
+
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'CREATE',
+      module: 'products',
+      details: `Menambahkan produk baru: ${product.name}`,
+    });
+
     return new Response(JSON.stringify(product), { status: 201 });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), { status: 400 });

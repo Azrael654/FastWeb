@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { getSessionUser } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const PUT: APIRoute = async ({ params, request, cookies }) => {
   const user = getSessionUser(cookies);
@@ -22,6 +23,15 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         enabled: data.enabled !== undefined ? data.enabled : true,
       }
     });
+
+    await logActivity(request, {
+      userId: user.id,
+      userName: user.name,
+      action: 'UPDATE',
+      module: 'coupons',
+      details: `Memperbarui kupon diskon: ${coupon.code}`,
+    });
+
     return new Response(JSON.stringify(coupon), { status: 200 });
   } catch (error: any) {
     if (error.code === 'P2002') {
@@ -38,7 +48,19 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
+    const coupon = await prisma.coupon.findUnique({ where: { id: params.id } });
     await prisma.coupon.delete({ where: { id: params.id } });
+
+    if (coupon) {
+      await logActivity(request, {
+        userId: user.id,
+        userName: user.name,
+        action: 'DELETE',
+        module: 'coupons',
+        details: `Menghapus kupon diskon: ${coupon.code}`,
+      });
+    }
+
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Gagal menghapus kupon' }), { status: 500 });

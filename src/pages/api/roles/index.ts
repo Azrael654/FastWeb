@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { requireAdmin } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   const admin = requireAdmin(cookies);
@@ -21,6 +22,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         isSystem: false,
         permissions: data.permissions || {},
       }
+    });
+
+    await logActivity(request, {
+      userId: admin.id,
+      userName: admin.name,
+      action: 'CREATE',
+      module: 'users',
+      details: `Membuat role baru: ${role.name}`,
     });
 
     return new Response(JSON.stringify({ success: true, id: role.id }), { status: 201 });

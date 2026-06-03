@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
 import { hashPassword, verifyPassword, signToken, setSessionCookie } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   try {
@@ -32,6 +33,15 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     }
     const token = signToken({ id: user.id, email: user.email, name: user.name, role: user.role });
     setSessionCookie(cookies, token);
+
+    await logActivity(request, {
+      userId: user.id,
+      userName: user.name,
+      action: 'LOGIN',
+      module: 'auth',
+      details: 'Pengguna berhasil masuk (login) ke sistem',
+    });
+
     return new Response(JSON.stringify({ success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } }), { status: 200 });
   } catch (e) {
     console.error(e);
