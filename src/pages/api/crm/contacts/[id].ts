@@ -14,3 +14,27 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: err.message }), { status: 400 });
   }
 };
+
+export const PUT: APIRoute = async ({ params, request, cookies }) => {
+  const admin = requireAdmin(cookies);
+  if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+
+  try {
+    const { id } = params;
+    const body = await request.json();
+    const contact = await prisma.contact.update({
+      where: { id },
+      data: {
+        name: body.name,
+        email: body.email || null,
+        phone: body.phone || null,
+        company: body.company || null,
+        type: body.type,
+        notes: body.notes || null,
+      },
+    });
+    return new Response(JSON.stringify(contact), { status: 200 });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 400 });
+  }
+};

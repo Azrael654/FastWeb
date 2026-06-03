@@ -2,7 +2,30 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
 
-const contacts = await prisma.contact.findMany({ orderBy: { dateAdded: 'desc' } });
+const search = Astro.url.searchParams.get('search') || '';
+const type = Astro.url.searchParams.get('type') || '';
+
+const where: any = {};
+const andConditions: any[] = [];
+
+if (search) {
+  andConditions.push({
+    OR: [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { company: { contains: search, mode: 'insensitive' } }
+    ]
+  });
+}
+if (type) {
+  andConditions.push({ type });
+}
+
+if (andConditions.length > 0) {
+  where.AND = andConditions;
+}
+
+const contacts = await prisma.contact.findMany({ where, orderBy: { dateAdded: 'desc' } });
 const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-green', vendor: 'badge-blue' };
 ---
 <AdminLayout title="CRM – Kontak" currentPage="crm">
@@ -13,6 +36,18 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
     </div>
     <button id="add-contact-btn" class="btn-primary text-sm">+ Tambah Kontak</button>
   </div>
+
+  <form class="flex flex-col sm:flex-row gap-3 mb-5" action="/admin/crm" method="GET">
+    <input type="text" name="search" value={search} placeholder="Cari nama, email, perusahaan..." class="input-field text-sm flex-1" />
+    <select name="type" class="input-field text-sm w-full sm:w-48">
+      <option value="">Semua Tipe</option>
+      <option value="lead" selected={type === 'lead'}>Lead</option>
+      <option value="client" selected={type === 'client'}>Client</option>
+      <option value="vendor" selected={type === 'vendor'}>Vendor</option>
+    </select>
+    <button type="submit" class="btn-primary text-sm px-4">Filter</button>
+    { (search || type) && <a href="/admin/crm" class="btn-ghost text-sm px-4 flex items-center justify-center">Reset</a> }
+  </form>
 
   <div class="card">
     <div class="table-wrapper">
@@ -39,10 +74,16 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
               </td>
               <td class="text-xs text-gray-500">{new Date(c.dateAdded).toLocaleDateString('id-ID')}</td>
               <td>
-                <button
-                  data-id={c.id}
-                  class="delete-contact text-red-500 hover:underline text-xs"
-                >Hapus</button>
+                <div class="flex gap-2">
+                  <button
+                    data-contact={JSON.stringify(c)}
+                    class="edit-contact text-blue-500 hover:underline text-xs"
+                  >Edit</button>
+                  <button
+                    data-id={c.id}
+                    class="delete-contact text-red-500 hover:underline text-xs"
+                  >Hapus</button>
+                </div>
               </td>
             </tr>
           ))}
@@ -51,11 +92,12 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
     </div>
   </div>
 
-  <!-- Add Contact Modal -->
+  <!-- Add/Edit Contact Modal -->
   <div id="contact-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-      <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Kontak</h3>
+      <h3 id="modal-title" class="font-bold text-gray-900 text-lg mb-4">Tambah Kontak</h3>
       <form id="contact-form" class="space-y-3">
+        <input type="hidden" name="id" id="contact-id" />
         <div><label class="label">Nama *</label><input name="name" required class="input-field text-sm" /></div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label">Email</label><input name="email" type="email" class="input-field text-sm" /></div>
@@ -94,17 +136,49 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
 </AdminLayout>
 
 <script>
+  const modalTitle = document.getElementById('modal-title')!;
+  const contactIdInput = document.getElementById('contact-id') as HTMLInputElement;
+  const contactForm = document.getElementById('contact-form') as HTMLFormElement;
+
   // Add contact modal
-  document.getElementById('add-contact-btn')?.addEventListener('click', () =>
-    document.getElementById('contact-modal')?.classList.remove('hidden'));
+  document.getElementById('add-contact-btn')?.addEventListener('click', () => {
+    modalTitle.textContent = 'Tambah Kontak';
+    contactIdInput.value = '';
+    contactForm.reset();
+    document.getElementById('contact-modal')?.classList.remove('hidden');
+  });
+  
   document.getElementById('close-contact-modal')?.addEventListener('click', () =>
     document.getElementById('contact-modal')?.classList.add('hidden'));
 
-  document.getElementById('contact-form')?.addEventListener('submit', async (e) => {
+  // Edit contact modal
+  document.querySelectorAll('.edit-contact').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      const data = JSON.parse(el.dataset.contact || '{}');
+      modalTitle.textContent = 'Edit Kontak';
+      contactIdInput.value = data.id || '';
+      
+      (contactForm.elements.namedItem('name') as HTMLInputElement).value = data.name || '';
+      (contactForm.elements.namedItem('email') as HTMLInputElement).value = data.email || '';
+      (contactForm.elements.namedItem('phone') as HTMLInputElement).value = data.phone || '';
+      (contactForm.elements.namedItem('company') as HTMLInputElement).value = data.company || '';
+      (contactForm.elements.namedItem('type') as HTMLSelectElement).value = data.type || 'lead';
+      (contactForm.elements.namedItem('notes') as HTMLTextAreaElement).value = data.notes || '';
+      
+      document.getElementById('contact-modal')?.classList.remove('hidden');
+    });
+  });
+
+  contactForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
-    const res = await fetch('/api/crm/contacts', {
-      method: 'POST',
+    const isEdit = !!data.id;
+    const url = isEdit ? `/api/crm/contacts/${data.id}` : '/api/crm/contacts';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
