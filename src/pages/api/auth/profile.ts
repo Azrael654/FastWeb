@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { getSessionUser } from '../../../lib/auth';
+import { getSessionUser, hashPassword } from '../../../lib/auth';
+import { logActivity } from '../../../lib/logger';
 
 export const PUT: APIRoute = async ({ request, cookies }) => {
   const user = getSessionUser(cookies);
@@ -16,13 +17,28 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
       return new Response(JSON.stringify({ error: 'Nama wajib diisi' }), { status: 400 });
     }
 
+    const updateData: any = {
+      name: data.name.trim(),
+      phone: data.phone?.trim() || null,
+      address: data.address?.trim() || null,
+      avatar: data.avatar || null,
+    };
+
+    if (data.password && data.password.trim() !== '') {
+      updateData.password = await hashPassword(data.password);
+    }
+
     const updatedUser = await prisma.appUser.update({
       where: { id: user.id },
-      data: {
-        name: data.name.trim(),
-        phone: data.phone?.trim() || null,
-        address: data.address?.trim() || null
-      }
+      data: updateData
+    });
+
+    await logActivity(request, {
+      userId: user.id,
+      userName: user.name,
+      action: 'UPDATE',
+      module: 'users',
+      details: 'Pengguna memperbarui profilnya sendiri',
     });
 
     // Update the session cookie if name changed

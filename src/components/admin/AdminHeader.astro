@@ -1,9 +1,11 @@
 ---
+import prisma from '../../lib/prisma';
 interface Props {
   user: { id: string; name: string; email: string; role: string };
   title?: string;
 }
 const { user, title = 'Dashboard' } = Astro.props;
+const dbUser = await prisma.appUser.findUnique({ where: { id: user.id } });
 ---
 <header class="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shrink-0">
   <div class="flex items-center gap-2 sm:gap-3">
@@ -22,14 +24,18 @@ const { user, title = 'Dashboard' } = Astro.props;
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
       Lihat Toko
     </a>
-    <div class="flex items-center gap-2 pl-2 border-l border-gray-100">
-      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-        <span class="text-xs font-bold text-blue-700">{user.name.charAt(0).toUpperCase()}</span>
+    <a href="/admin/profile" class="flex items-center gap-2 pl-2 border-l border-gray-100 hover:opacity-80 transition-opacity">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+        {dbUser?.avatar ? (
+          <img src={dbUser.avatar} alt="Profile" class="w-full h-full object-cover" />
+        ) : (
+          <span class="text-xs font-bold text-blue-700">{user.name.charAt(0).toUpperCase()}</span>
+        )}
       </div>
       <div class="hidden sm:block">
         <p class="text-sm font-semibold text-gray-900 leading-tight">{user.name.split(' ')[0]}</p>
         <p class="text-xs text-gray-500 capitalize leading-tight">{user.role}</p>
       </div>
-    </div>
+    </a>
   </div>
 </header>
