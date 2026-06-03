@@ -38,7 +38,7 @@ const paymentMethods = await prisma.paymentMethod.findMany({ orderBy: { name: 'a
             <div class="flex items-center gap-3">
               <span class={`text-xs px-2 py-1 rounded-md ${m.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{m.isActive ? 'Aktif' : 'Non-aktif'}</span>
               <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                <button class="edit-pm-btn text-xs text-blue-600 hover:underline" data-id={m.id} data-name={m.name} data-desc={m.description || ''} data-acc={m.accountNumber || ''} data-active={m.isActive ? 'true' : 'false'}>Edit</button>
+                <button class="edit-pm-btn text-xs text-blue-600 hover:underline" data-id={m.id} data-name={m.name} data-desc={m.description || ''} data-acc={m.accountNumber || ''} data-active={m.isActive ? 'true' : 'false'} data-shipping={m.supportedShipping || 'all'}>Edit</button>
                 <button class="delete-pm-btn text-xs text-red-600 hover:underline" data-id={m.id}>Hapus</button>
               </div>
             </div>
@@ -74,6 +74,14 @@ const paymentMethods = await prisma.paymentMethod.findMany({ orderBy: { name: 'a
         <div><label class="label">Nama Metode</label><input name="name" id="pm-name" required class="input-field" placeholder="Transfer BCA, QRIS..." /></div>
         <div><label class="label">No. Rekening / Info</label><input name="accountNumber" id="pm-acc" class="input-field" placeholder="1234567890" /></div>
         <div><label class="label">Deskripsi Tambahan</label><input name="description" id="pm-desc" class="input-field" placeholder="a/n Fast Print" /></div>
+        <div>
+          <label class="label">Aktif untuk Pengiriman</label>
+          <select name="supportedShipping" id="pm-shipping" class="input-field">
+            <option value="all">Semua Metode (Kurir & Ambil di Toko)</option>
+            <option value="dikirim">Hanya Dikirim Kurir</option>
+            <option value="ambil">Hanya Ambil di Toko</option>
+          </select>
+        </div>
         <div class="flex items-center gap-2 mt-2">
           <input type="checkbox" name="isActive" id="pm-active" class="w-4 h-4 text-blue-600 rounded border-gray-300" checked />
           <label for="pm-active" class="text-sm text-gray-700 font-medium">Metode Aktif</label>
@@ -101,6 +109,7 @@ const paymentMethods = await prisma.paymentMethod.findMany({ orderBy: { name: 'a
     pmIdInput.value = '';
     pmTitle.textContent = 'Tambah Metode Pembayaran';
     (document.getElementById('pm-active') as HTMLInputElement).checked = true;
+    (document.getElementById('pm-shipping') as HTMLSelectElement).value = 'all';
     pmModal.classList.remove('hidden');
   });
 
@@ -116,6 +125,7 @@ const paymentMethods = await prisma.paymentMethod.findMany({ orderBy: { name: 'a
       (document.getElementById('pm-acc') as HTMLInputElement).value = el.dataset.acc!;
       (document.getElementById('pm-desc') as HTMLInputElement).value = el.dataset.desc!;
       (document.getElementById('pm-active') as HTMLInputElement).checked = el.dataset.active === 'true';
+      (document.getElementById('pm-shipping') as HTMLSelectElement).value = el.dataset.shipping || 'all';
       pmTitle.textContent = 'Edit Metode Pembayaran';
       pmModal.classList.remove('hidden');
     });

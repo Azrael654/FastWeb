@@ -22,6 +22,8 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
   const shippingFee = 0; // Ongkir dihitung admin nanti jika dikirim
   const total = subtotal + shippingFee - discount;
 
+  const availablePaymentMethods = paymentMethods.filter(m => !m.supportedShipping || m.supportedShipping === 'all' || m.supportedShipping === shippingMethod);
+
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
     setCouponLoading(true);
@@ -184,11 +186,11 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
         {/* Payment Info */}
         <div className="card p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-5">Metode Pembayaran</h2>
-          {paymentMethods.length === 0 ? (
-            <p className="text-sm text-gray-500">Belum ada metode pembayaran yang aktif.</p>
+          {availablePaymentMethods.length === 0 ? (
+            <p className="text-sm text-gray-500">Belum ada metode pembayaran yang aktif untuk pengiriman ini.</p>
           ) : (
             <div className="space-y-3">
-              {paymentMethods.map((m: any, idx: number) => (
+              {availablePaymentMethods.map((m: any, idx: number) => (
                 <label key={m.id} className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 transition-colors">
                   <input type="radio" name="paymentMethod" value={m.name} defaultChecked={idx === 0} className="mt-1 w-4 h-4 text-blue-600" required />
                   <div>

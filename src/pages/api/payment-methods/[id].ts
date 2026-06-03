@@ -19,6 +19,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
         description: body.description,
         accountNumber: body.accountNumber,
         isActive: body.isActive,
+        supportedShipping: body.supportedShipping || 'all',
       },
     });
 
@@ -36,7 +37,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   }
 };
 
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ params, request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   

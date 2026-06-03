@@ -18,7 +18,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   body.isActive = body.isActive === 'true' || body.isActive === true || body.isActive === 'on';
 
   try {
-    const method = await prisma.paymentMethod.create({ data: body });
+    const method = await prisma.paymentMethod.create({ 
+      data: {
+        ...body,
+        supportedShipping: body.supportedShipping || 'all',
+      } 
+    });
 
     await logActivity(request, {
       userId: admin.id,

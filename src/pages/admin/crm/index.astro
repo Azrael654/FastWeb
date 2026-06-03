@@ -17,7 +17,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
   <div class="card">
     <div class="table-wrapper">
       <table class="data-table">
-        <thead><tr><th>Nama</th><th>Email</th><th>Telepon</th><th>Perusahaan</th><th>Tipe</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Nama</th><th>Email</th><th>Telepon</th><th>Perusahaan</th><th>Tipe</th><th>Pesan</th><th>Tanggal</th><th>Aksi</th></tr></thead>
         <tbody>
           {contacts.map(c => (
             <tr>
@@ -26,8 +26,24 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
               <td class="text-sm text-gray-600">{c.phone || '-'}</td>
               <td class="text-sm text-gray-600">{c.company || '-'}</td>
               <td><span class={`badge ${typeColor[c.type] || 'badge-gray'} capitalize text-xs`}>{c.type}</span></td>
+              <td class="text-sm text-gray-600 max-w-[200px]">
+                {c.notes ? (
+                  <button
+                    class="view-notes-btn text-blue-600 hover:underline text-xs text-left line-clamp-2"
+                    data-name={c.name}
+                    data-notes={c.notes}
+                  >
+                    {c.notes.length > 60 ? c.notes.slice(0, 60) + '…' : c.notes}
+                  </button>
+                ) : <span class="text-gray-400">-</span>}
+              </td>
               <td class="text-xs text-gray-500">{new Date(c.dateAdded).toLocaleDateString('id-ID')}</td>
-              <td><button data-id={c.id} class="delete-contact text-red-500 hover:underline text-xs">Hapus</button></td>
+              <td>
+                <button
+                  data-id={c.id}
+                  class="delete-contact text-red-500 hover:underline text-xs"
+                >Hapus</button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -35,7 +51,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- Add Contact Modal -->
   <div id="contact-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
       <h3 class="font-bold text-gray-900 text-lg mb-4">Tambah Kontak</h3>
@@ -55,7 +71,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
             </select>
           </div>
         </div>
-        <div><label class="label">Catatan</label><textarea name="notes" class="input-field text-sm" rows="2"></textarea></div>
+        <div><label class="label">Catatan / Pesan</label><textarea name="notes" class="input-field text-sm" rows="3"></textarea></div>
         <div class="flex gap-3 pt-2">
           <button type="submit" class="btn-primary flex-1 text-sm">Simpan</button>
           <button type="button" id="close-contact-modal" class="btn-ghost flex-1 text-sm">Batal</button>
@@ -63,24 +79,61 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
       </form>
     </div>
   </div>
+
+  <!-- Notes Detail Modal -->
+  <div id="notes-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
+      <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+        <h3 id="notes-modal-name" class="font-bold text-gray-900 text-lg"></h3>
+        <button id="close-notes-modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-2">Pesan:</p>
+      <div id="notes-modal-content" class="bg-gray-50 rounded-xl p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto"></div>
+    </div>
+  </div>
 </AdminLayout>
 
 <script>
-  document.getElementById('add-contact-btn')?.addEventListener('click', () => document.getElementById('contact-modal')?.classList.remove('hidden'));
-  document.getElementById('close-contact-modal')?.addEventListener('click', () => document.getElementById('contact-modal')?.classList.add('hidden'));
+  // Add contact modal
+  document.getElementById('add-contact-btn')?.addEventListener('click', () =>
+    document.getElementById('contact-modal')?.classList.remove('hidden'));
+  document.getElementById('close-contact-modal')?.addEventListener('click', () =>
+    document.getElementById('contact-modal')?.classList.add('hidden'));
 
   document.getElementById('contact-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target as HTMLFormElement));
-    const res = await fetch('/api/crm/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const res = await fetch('/api/crm/contacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
     if (res.ok) location.reload(); else alert('Gagal menyimpan');
   });
 
+  // Delete contacts
   document.querySelectorAll('.delete-contact').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
       if (!confirm('Hapus kontak ini?')) return;
-      // Simple delete via direct query - add DELETE endpoint if needed
-      alert('Fitur hapus: tambahkan endpoint DELETE /api/crm/contacts/[id]');
+      const id = (e.currentTarget as HTMLElement).dataset.id;
+      const res = await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' });
+      if (res.ok) location.reload(); else alert('Gagal menghapus');
     });
+  });
+
+  // View notes modal
+  const notesModal = document.getElementById('notes-modal')!;
+  document.querySelectorAll('.view-notes-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const el = e.currentTarget as HTMLElement;
+      document.getElementById('notes-modal-name')!.textContent = el.dataset.name || '';
+      document.getElementById('notes-modal-content')!.textContent = el.dataset.notes || '';
+      notesModal.classList.remove('hidden');
+    });
+  });
+  document.getElementById('close-notes-modal')?.addEventListener('click', () =>
+    notesModal.classList.add('hidden'));
+  notesModal.addEventListener('click', (e) => {
+    if (e.target === notesModal) notesModal.classList.add('hidden');
   });
 </script>
