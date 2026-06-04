@@ -3,7 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
 
 const search = Astro.url.searchParams.get('search') || '';
-const type = Astro.url.searchParams.get('type') || '';
+const typeFilter = Astro.url.searchParams.get('type') || '';
 
 const where: any = {};
 const andConditions: any[] = [];
@@ -20,16 +20,22 @@ if (search) {
     ]
   });
 }
-if (type) {
-  andConditions.push({ type });
+if (typeFilter) {
+  andConditions.push({ type: typeFilter });
 }
 
 if (andConditions.length > 0) {
   where.AND = andConditions;
 }
 
-const contacts = await prisma.contact.findMany({ where, orderBy: { dateAdded: 'desc' } });
-const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-green', vendor: 'badge-blue' };
+const [contacts, contactTypes] = await Promise.all([
+  prisma.contact.findMany({ where, orderBy: { dateAdded: 'desc' } }),
+  prisma.contactType.findMany({ orderBy: { name: 'asc' } }),
+]);
+
+// Build color map from DB
+const typeColorMap: Record<string, string> = {};
+contactTypes.forEach(t => { typeColorMap[t.name] = t.color; });
 ---
 <AdminLayout title="CRM – Kontak" currentPage="crm">
   <div class="flex items-center justify-between mb-5">
@@ -37,19 +43,22 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
       <h2 class="text-lg font-bold text-gray-900">Kontak</h2>
       <p class="text-sm text-gray-500">{contacts.length} kontak tersimpan</p>
     </div>
-    <button id="add-contact-btn" class="btn-primary text-sm">+ Tambah Kontak</button>
+    <div class="flex gap-2">
+      <button id="manage-types-btn" class="btn-ghost text-sm px-3">Kelola Tipe</button>
+      <button id="add-contact-btn" class="btn-primary text-sm">+ Tambah Kontak</button>
+    </div>
   </div>
 
   <form class="flex flex-col sm:flex-row gap-3 mb-5" action="/admin/crm" method="GET">
     <input type="text" name="search" value={search} placeholder="Cari nama, email, perusahaan..." class="input-field text-sm flex-1" />
     <select name="type" class="input-field text-sm w-full sm:w-48">
       <option value="">Semua Tipe</option>
-      <option value="lead" selected={type === 'lead'}>Lead</option>
-      <option value="client" selected={type === 'client'}>Client</option>
-      <option value="vendor" selected={type === 'vendor'}>Vendor</option>
+      {contactTypes.map(t => (
+        <option value={t.name} selected={typeFilter === t.name}>{t.name}</option>
+      ))}
     </select>
     <button type="submit" class="btn-primary text-sm px-4">Filter</button>
-    { (search || type) && <a href="/admin/crm" class="btn-ghost text-sm px-4 flex items-center justify-center">Reset</a> }
+    { (search || typeFilter) && <a href="/admin/crm" class="btn-ghost text-sm px-4 flex items-center justify-center">Reset</a> }
   </form>
 
   <div class="card">
@@ -63,7 +72,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
               <td class="text-sm text-gray-600">{c.email || '-'}</td>
               <td class="text-sm text-gray-600">{c.phone || '-'}</td>
               <td class="text-sm text-gray-600">{c.company || '-'}</td>
-              <td><span class={`badge ${typeColor[c.type] || 'badge-gray'} capitalize text-xs`}>{c.type}</span></td>
+              <td><span class={`badge ${typeColorMap[c.type] || 'badge-gray'} capitalize text-xs`}>{c.type}</span></td>
               <td class="text-xs text-gray-500">{new Date(c.dateAdded).toLocaleDateString('id-ID')}</td>
               <td>
                 <div class="flex gap-2">
@@ -98,11 +107,14 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label">Perusahaan</label><input name="company" class="input-field text-sm" /></div>
           <div><label class="label">Tipe</label>
-            <select name="type" class="input-field text-sm">
-              <option value="lead">Lead</option>
-              <option value="client">Client</option>
-              <option value="vendor">Vendor</option>
-            </select>
+            <div class="flex items-center gap-1">
+              <select name="type" id="contact-type-select" class="input-field text-sm flex-1">
+                {contactTypes.map(t => (
+                  <option value={t.name}>{t.name}</option>
+                ))}
+                {contactTypes.length === 0 && <option value="lead">lead</option>}
+              </select>
+            </div>
           </div>
         </div>
         <div class="flex gap-3 pt-2">
@@ -110,6 +122,62 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
           <button type="button" id="close-contact-modal" class="btn-ghost flex-1 text-sm">Batal</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Manage Contact Types Modal -->
+  <div id="type-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-900 text-lg">Kelola Tipe Kontak</h3>
+        <button id="close-type-modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      </div>
+
+      <form id="type-form" class="flex items-end gap-2 mb-6">
+        <input type="hidden" id="type-edit-id" />
+        <div class="flex-1">
+          <label class="label text-xs">Nama Tipe</label>
+          <input id="type-name-input" required placeholder="Contoh: partner" class="input-field text-sm" />
+        </div>
+        <div>
+          <label class="label text-xs">Warna Badge</label>
+          <select id="type-color-select" class="input-field text-sm">
+            <option value="badge-gray">Abu-abu</option>
+            <option value="badge-yellow">Kuning</option>
+            <option value="badge-green">Hijau</option>
+            <option value="badge-blue">Biru</option>
+            <option value="badge-red">Merah</option>
+            <option value="badge-purple">Ungu</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary shrink-0 text-sm px-4 py-2">Simpan</button>
+      </form>
+
+      <div id="type-list" class="space-y-2">
+        {contactTypes.map(t => (
+          <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group" data-id={t.id}>
+            <div class="flex items-center gap-2">
+              <span class={`badge ${t.color} capitalize text-xs`}>{t.name}</span>
+            </div>
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              <button
+                class="edit-type-btn text-xs text-blue-600 hover:underline"
+                data-id={t.id}
+                data-name={t.name}
+                data-color={t.color}
+              >Edit</button>
+              <button
+                class="delete-type-btn text-xs text-red-600 hover:underline"
+                data-id={t.id}
+                data-name={t.name}
+              >Hapus</button>
+            </div>
+          </div>
+        ))}
+        {contactTypes.length === 0 && (
+          <p id="no-types-msg" class="text-sm text-center text-gray-400 py-4">Belum ada tipe. Tambahkan di atas.</p>
+        )}
+      </div>
     </div>
   </div>
 </AdminLayout>
@@ -126,7 +194,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
     contactForm.reset();
     document.getElementById('contact-modal')?.classList.remove('hidden');
   });
-  
+
   document.getElementById('close-contact-modal')?.addEventListener('click', () =>
     document.getElementById('contact-modal')?.classList.add('hidden'));
 
@@ -137,13 +205,11 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
       const data = JSON.parse(el.dataset.contact || '{}');
       modalTitle.textContent = 'Edit Kontak';
       contactIdInput.value = data.id || '';
-      
       (contactForm.elements.namedItem('name') as HTMLInputElement).value = data.name || '';
       (contactForm.elements.namedItem('email') as HTMLInputElement).value = data.email || '';
       (contactForm.elements.namedItem('phone') as HTMLInputElement).value = data.phone || '';
       (contactForm.elements.namedItem('company') as HTMLInputElement).value = data.company || '';
-      (contactForm.elements.namedItem('type') as HTMLSelectElement).value = data.type || 'lead';
-      
+      (contactForm.elements.namedItem('type') as HTMLSelectElement).value = data.type || '';
       document.getElementById('contact-modal')?.classList.remove('hidden');
     });
   });
@@ -154,12 +220,7 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
     const isEdit = !!data.id;
     const url = isEdit ? `/api/crm/contacts/${data.id}` : '/api/crm/contacts';
     const method = isEdit ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (res.ok) location.reload(); else alert('Gagal menyimpan');
   });
 
@@ -171,5 +232,103 @@ const typeColor: Record<string,string> = { lead: 'badge-yellow', client: 'badge-
       const res = await fetch(`/api/crm/contacts/${id}`, { method: 'DELETE' });
       if (res.ok) location.reload(); else alert('Gagal menghapus');
     });
+  });
+
+  // ── Manage Types Modal ──────────────────────────────────────────────
+  const typeModal = document.getElementById('type-modal')!;
+  const typeForm = document.getElementById('type-form') as HTMLFormElement;
+  const typeEditId = document.getElementById('type-edit-id') as HTMLInputElement;
+  const typeNameInput = document.getElementById('type-name-input') as HTMLInputElement;
+  const typeColorSelect = document.getElementById('type-color-select') as HTMLSelectElement;
+
+  document.getElementById('manage-types-btn')?.addEventListener('click', () =>
+    typeModal.classList.remove('hidden'));
+  document.getElementById('close-type-modal')?.addEventListener('click', () =>
+    typeModal.classList.add('hidden'));
+  typeModal.addEventListener('click', e => { if (e.target === typeModal) typeModal.classList.add('hidden'); });
+
+  function resetTypeForm() {
+    typeEditId.value = '';
+    typeNameInput.value = '';
+    typeColorSelect.value = 'badge-gray';
+  }
+
+  function renderTypeItem(t: { id: string; name: string; color: string }) {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between p-2.5 bg-gray-50 rounded-lg group';
+    div.dataset.id = t.id;
+    div.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="badge ${t.color} capitalize text-xs">${t.name}</span>
+      </div>
+      <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+        <button class="edit-type-btn text-xs text-blue-600 hover:underline" data-id="${t.id}" data-name="${t.name}" data-color="${t.color}">Edit</button>
+        <button class="delete-type-btn text-xs text-red-600 hover:underline" data-id="${t.id}" data-name="${t.name}">Hapus</button>
+      </div>`;
+    attachTypeListeners(div);
+    return div;
+  }
+
+  function attachTypeListeners(container: Element) {
+    container.querySelectorAll('.edit-type-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const el = e.currentTarget as HTMLElement;
+        typeEditId.value = el.dataset.id!;
+        typeNameInput.value = el.dataset.name!;
+        typeColorSelect.value = el.dataset.color!;
+        typeNameInput.focus();
+      });
+    });
+    container.querySelectorAll('.delete-type-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        const el = e.currentTarget as HTMLElement;
+        if (!confirm(`Hapus tipe "${el.dataset.name}"?`)) return;
+        const res = await fetch(`/api/crm/contact-types/${el.dataset.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          el.closest('[data-id]')?.remove();
+        } else {
+          alert('Gagal menghapus tipe');
+        }
+      });
+    });
+  }
+
+  // Attach listeners to existing items in the list
+  attachTypeListeners(document.getElementById('type-list')!);
+
+  typeForm?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const isEdit = !!typeEditId.value;
+    const payload = { name: typeNameInput.value.trim(), color: typeColorSelect.value };
+    const url = isEdit ? `/api/crm/contact-types/${typeEditId.value}` : '/api/crm/contact-types';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const saved = await res.json();
+      const list = document.getElementById('type-list')!;
+      const noMsg = document.getElementById('no-types-msg');
+      noMsg?.remove();
+
+      if (isEdit) {
+        // Update existing row
+        const existing = list.querySelector(`[data-id="${saved.id}"]`);
+        if (existing) {
+          const newEl = renderTypeItem(saved);
+          existing.replaceWith(newEl);
+        }
+      } else {
+        list.appendChild(renderTypeItem(saved));
+      }
+      resetTypeForm();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Gagal menyimpan tipe');
+    }
   });
 </script>
