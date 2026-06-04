@@ -289,7 +289,7 @@ const formatPrice = (price: any) => {
 </MainLayout>
 
 <script>
-  import { generateInvoice } from '../../lib/invoice';
+  import { generateInvoice, loadInvoiceLogo } from '../../lib/invoice';
 
   // Edit Profile Logic
   const profileModal = document.getElementById('profile-modal');
@@ -363,12 +363,18 @@ const formatPrice = (price: any) => {
   document.querySelectorAll('.download-invoice-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const el = e.currentTarget as HTMLButtonElement;
+      el.textContent = 'Memuat...';
+      el.disabled = true;
       try {
         const orderData = JSON.parse(el.dataset.order || '{}');
-        generateInvoice(orderData);
+        const logo = await loadInvoiceLogo();
+        generateInvoice(orderData, logo);
       } catch (err) {
         console.error(err);
         alert('Gagal mendownload invoice');
+      } finally {
+        el.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Invoice';
+        el.disabled = false;
       }
     });
   });

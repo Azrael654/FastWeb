@@ -1,13 +1,33 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export function generateInvoice(order: any) {
-  const doc = new jsPDF();
-  
-  // Format currency
-  const formatPrice = (price: any) => Number(price).toLocaleString("id-ID");
+/** Load /invoice-logo.svg into a base64 PNG via an off-screen canvas. */
+export function loadInvoiceLogo(): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = '/invoice-logo.svg';
+    } catch {
+      resolve(null);
+    }
+  });
+}
 
-  // Determine invoice status text
+export function generateInvoice(order: any, logoDataUrl?: string | null) {
+  const doc = new jsPDF();
+
+  const formatPrice = (price: any) => Number(price).toLocaleString('id-ID');
+
   let statusText = 'INVOICE';
   if (order.status === 'delivered' || order.status === 'shipped' || order.status === 'processing') {
     statusText = 'INVOICE - LUNAS';
@@ -17,71 +37,73 @@ export function generateInvoice(order: any) {
     statusText = 'INVOICE - BELUM LUNAS';
   }
 
-  // Header
-  doc.setFontSize(20);
-  doc.setTextColor(37, 99, 235); // Blue-600
-  doc.text('FAST PRINT', 14, 22);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Printing Solution', 14, 28);
-  
-  // Invoice Title & Status
+  // ── Header ────────────────────────────────────────────────────────────
+  if (logoDataUrl) {
+    // SVG viewBox is 1216×264 → aspect ≈ 4.6:1, so 60 × 13 mm fits nicely
+    doc.addImage(logoDataUrl, 'PNG', 14, 11, 60, 14);
+  } else {
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235);
+    doc.text('FAST PRINT', 14, 22);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Printing Solution', 14, 28);
+  }
+
+  // Invoice title & status (right side)
   doc.setFontSize(16);
   doc.setTextColor(40, 40, 40);
   doc.text(statusText, 140, 22);
-  
+
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text(`Order ID: #${order.id.slice(-8).toUpperCase()}`, 140, 28);
   doc.text(`Tanggal: ${new Date(order.createdAt).toLocaleDateString('id-ID')}`, 140, 34);
 
-  // Line separator
+  // Separator
   doc.setDrawColor(200, 200, 200);
   doc.line(14, 40, 196, 40);
 
-  // Customer Info
+  // Customer info
   doc.setFontSize(10);
   doc.setTextColor(40, 40, 40);
   doc.setFont('helvetica', 'bold');
   doc.text('Ditagihkan Kepada:', 14, 50);
-  
   doc.setFont('helvetica', 'normal');
   doc.text(order.customerName, 14, 56);
   doc.text(order.customerEmail, 14, 62);
   if (order.customerPhone) doc.text(order.customerPhone, 14, 68);
-  
-  // Shipping Address
+
+  // Shipping address
   if (order.shippingAddress) {
     const addr = order.shippingAddress;
     doc.setFont('helvetica', 'bold');
     doc.text('Dikirim Ke:', 100, 50);
     doc.setFont('helvetica', 'normal');
     doc.text(addr.name || order.customerName, 100, 56);
-    
-    // Handle multiline address
     const splitAddress = doc.splitTextToSize(addr.address || '', 90);
     doc.text(splitAddress, 100, 62);
-    
-    const yOffset = 62 + (splitAddress.length * 5);
+    const yOffset = 62 + splitAddress.length * 5;
     doc.text(`${addr.city || ''}, ${addr.province || ''} ${addr.postalCode || ''}`, 100, yOffset);
     if (addr.phone) doc.text(addr.phone, 100, yOffset + 5);
   }
 
-  // Items Table
+  // Items table
   const items = Array.isArray(order.items) ? order.items : [];
   const tableData = items.map((item: any) => {
     let desc = item.name;
     if (item.dimension) desc += ` (${item.dimension} ${item.pricingUnit || ''})`;
     if (item.options && Object.keys(item.options).length > 0) {
-      const opts = Object.entries(item.options).map(([k, v]: any) => `${k}: ${v.name}`).join(', ');
+      const opts = Object.entries(item.options)
+        .map(([k, v]: any) => `${k}: ${v.name}`)
+        .join(', ');
       desc += `\n- ${opts}`;
     }
     return [
       desc,
       item.qty.toString(),
       `Rp ${formatPrice(item.price)}`,
-      `Rp ${formatPrice(item.price * item.qty)}`
+      `Rp ${formatPrice(item.price * item.qty)}`,
     ];
   });
 
@@ -96,14 +118,15 @@ export function generateInvoice(order: any) {
       0: { cellWidth: 90 },
       1: { halign: 'center' },
       2: { halign: 'right' },
-      3: { halign: 'right' }
-    }
+      3: { halign: 'right' },
+    },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 10;
 
   // Summary
   doc.setFontSize(10);
+  doc.setTextColor(40, 40, 40);
   doc.text('Subtotal:', 140, finalY);
   doc.text(`Rp ${formatPrice(order.subtotal)}`, 196, finalY, { align: 'right' });
 
@@ -132,6 +155,5 @@ export function generateInvoice(order: any) {
   doc.setTextColor(150, 150, 150);
   doc.text('Terima kasih atas pesanan Anda!', 105, 280, { align: 'center' });
 
-  // Save the PDF
   doc.save(`Invoice_${order.id.slice(-8).toUpperCase()}.pdf`);
 }

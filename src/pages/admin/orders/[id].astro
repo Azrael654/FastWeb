@@ -157,21 +157,28 @@ const statusColor: Record<string, string> = {
 </AdminLayout>
 
 <script>
-  import { generateInvoice } from '../../../lib/invoice';
+  import { generateInvoice, loadInvoiceLogo } from '../../../lib/invoice';
 
   const orderId = window.location.pathname.split('/').filter(Boolean).pop();
 
   // Download Invoice logic
-  document.getElementById('download-invoice-btn')?.addEventListener('click', async () => {
+  document.getElementById('download-invoice-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
     const orderDataElement = document.getElementById('order-data');
     if (!orderDataElement) return;
-    
+
+    btn.disabled = true;
+    btn.textContent = 'Memuat...';
     try {
       const orderData = JSON.parse(orderDataElement.dataset.order || '{}');
-      generateInvoice(orderData);
+      const logo = await loadInvoiceLogo();
+      generateInvoice(orderData, logo);
     } catch (err) {
       console.error(err);
       alert('Gagal membuat invoice');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Download Invoice';
     }
   });
 
