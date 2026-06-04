@@ -7,7 +7,7 @@ interface Props {
 const { user, title = 'Dashboard' } = Astro.props;
 const dbUser = await prisma.appUser.findUnique({ where: { id: user.id } });
 ---
-<header class="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shrink-0">
+<header class="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-30">
   <div class="flex items-center gap-2 sm:gap-3">
     <button id="mobile-menu-btn" class="lg:hidden p-2 -ml-2 text-gray-500 hover:text-blue-600 rounded-lg transition-colors">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -15,11 +15,42 @@ const dbUser = await prisma.appUser.findUnique({ where: { id: user.id } });
     <h1 class="text-lg font-bold text-gray-900">{title}</h1>
   </div>
   <div class="flex items-center gap-3">
-    <a href="/admin/notifications" class="relative p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" aria-label="Notifikasi">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-      </svg>
-    </a>
+    <!-- Notification Bell with Dropdown -->
+    <div class="relative">
+      <button 
+        id="notif-bell-btn" 
+        class="relative p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors focus:outline-none" 
+        aria-label="Notifikasi"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        <span 
+          id="notif-badge" 
+          class="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-[10px] font-bold text-white rounded-full flex items-center justify-center scale-0 transition-transform duration-300"
+        >
+          0
+        </span>
+      </button>
+
+      <!-- Notification Dropdown Panel -->
+      <div 
+        id="notif-dropdown" 
+        class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-200"
+      >
+        <div class="px-4 py-2 border-b border-gray-50 flex items-center justify-between">
+          <span class="font-bold text-gray-900 text-sm">Notifikasi Terbaru</span>
+          <button id="notif-mark-all" class="text-xs text-blue-600 hover:underline">Tandai semua dibaca</button>
+        </div>
+        <div id="notif-dropdown-list" class="max-h-72 overflow-y-auto divide-y divide-gray-50">
+          <p class="text-xs text-center text-gray-400 py-6">Memuat...</p>
+        </div>
+        <div class="px-4 pt-2 pb-1 border-t border-gray-50 text-center">
+          <a href="/admin/notifications" class="text-xs text-blue-600 hover:underline font-semibold block py-1">Lihat semua pemberitahuan</a>
+        </div>
+      </div>
+    </div>
+
     <a href="/" target="_blank" class="text-sm text-gray-500 hover:text-blue-600 flex items-center gap-1.5 px-3 py-1.5 hover:bg-blue-50 rounded-lg transition-colors">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
       Lihat Toko
@@ -39,3 +70,153 @@ const dbUser = await prisma.appUser.findUnique({ where: { id: user.id } });
     </a>
   </div>
 </header>
+
+<script>
+  let lastUnreadCount = 0;
+  let hasUserInteracted = false;
+
+  // Watch for interaction to initialize audio context
+  const unlockAudio = () => {
+    hasUserInteracted = true;
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio);
+  window.addEventListener('touchstart', unlockAudio);
+
+  // Play crisp notification chime using Web Audio API (totally local, no external files)
+  function playChime() {
+    if (!hasUserInteracted) return;
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      // Ring 1 (E6)
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1318.51, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.06, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.35);
+
+      // Ring 2 (A6) - slightly offset for nice chord effect
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1760.00, audioCtx.currentTime + 0.08);
+      gain2.gain.setValueAtTime(0.06, audioCtx.currentTime + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.45);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(audioCtx.currentTime + 0.08);
+      osc2.stop(audioCtx.currentTime + 0.45);
+
+    } catch (e) {
+      console.warn("Failed to play notification audio:", e);
+    }
+  }
+
+  // Toggle Dropdown
+  const bellBtn = document.getElementById('notif-bell-btn')!;
+  const dropdown = document.getElementById('notif-dropdown')!;
+  
+  bellBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target as Node) && e.target !== bellBtn) {
+      dropdown.classList.add('hidden');
+    }
+  });
+
+  // Fetch Notifications
+  async function fetchNotifications() {
+    try {
+      const res = await fetch('/api/admin/notifications?limit=5');
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      const badge = document.getElementById('notif-badge')!;
+      const list = document.getElementById('notif-dropdown-list')!;
+      
+      // Update badge
+      if (data.unreadCount > 0) {
+        badge.textContent = data.unreadCount > 99 ? '99+' : String(data.unreadCount);
+        badge.classList.remove('scale-0');
+        badge.classList.add('scale-100');
+        
+        // If unread count has increased, play the sound
+        if (data.unreadCount > lastUnreadCount && lastUnreadCount !== 0) {
+          playChime();
+        }
+      } else {
+        badge.classList.add('scale-0');
+        badge.classList.remove('scale-100');
+      }
+      
+      lastUnreadCount = data.unreadCount;
+
+      // Populate Dropdown
+      if (!data.notifications || data.notifications.length === 0) {
+        list.innerHTML = `<p class="text-xs text-center text-gray-400 py-6">Tidak ada pemberitahuan baru</p>`;
+        return;
+      }
+
+      list.innerHTML = data.notifications.map((n: any) => `
+        <div class="p-3 hover:bg-gray-50 flex items-start justify-between gap-3 text-left ${n.read ? 'opacity-65' : 'font-medium bg-blue-50/20'}" data-id="${n.id}">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+              ${n.title}
+              ${!n.read ? '<span class="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>' : ''}
+            </p>
+            <p class="text-xs text-gray-600 mt-0.5 truncate">${n.message}</p>
+          </div>
+          ${n.link ? `
+            <a href="${n.link}" class="notif-dropdown-open-btn text-[10px] text-blue-600 hover:underline shrink-0" data-id="${n.id}">
+              Buka
+            </a>
+          ` : ''}
+        </div>
+      `).join('');
+
+      // Add click listeners to dropdown links
+      list.querySelectorAll('.notif-dropdown-open-btn').forEach(a => {
+        a.addEventListener('click', (e) => {
+          const id = (e.currentTarget as HTMLElement).dataset.id;
+          fetch('/api/admin/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+          });
+        });
+      });
+
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  }
+
+  // Mark all read inside dropdown
+  document.getElementById('notif-mark-all')?.addEventListener('click', async () => {
+    const res = await fetch('/api/admin/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+    if (res.ok) {
+      fetchNotifications();
+    }
+  });
+
+  // Initial fetch and set interval polling
+  fetchNotifications();
+  setInterval(fetchNotifications, 10000); // Poll every 10 seconds
+</script>

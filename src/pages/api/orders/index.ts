@@ -43,6 +43,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       await prisma.coupon.updateMany({ where: { code: couponCode }, data: { usageCount: { increment: 1 } } });
     }
 
+    // Create Notification for Admin
+    await prisma.notification.create({
+      data: {
+        title: 'Pesanan Baru',
+        message: `Pesanan #${order.id.slice(-8).toUpperCase()} masuk dari ${customerName} sebesar Rp ${Number(total).toLocaleString('id-ID')}`,
+        type: 'success',
+        link: `/admin/orders/${order.id}`,
+      },
+    });
+
     await logActivity(request, {
       userId: user?.id,
       userName: user?.name || customerName,

@@ -1,0 +1,186 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import prisma from '../../lib/prisma';
+import { requireAdmin } from '../../lib/auth';
+
+const user = requireAdmin(Astro.cookies);
+if (!user) {
+  return Astro.redirect('/login?redirect=/admin/notifications');
+}
+
+const notifications = await prisma.notification.findMany({
+  orderBy: { createdAt: 'desc' },
+  take: 100,
+});
+
+const typeColor: Record<string, string> = {
+  success: 'bg-green-50 border-green-200 text-green-800',
+  warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+  error: 'bg-red-50 border-red-200 text-red-800',
+  info: 'bg-blue-50 border-blue-200 text-blue-800',
+};
+---
+<AdminLayout title="Notifikasi" currentPage="notifications">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">Pemberitahuan</h2>
+      <p class="text-sm text-gray-500">Kumpulan riwayat aktivitas dan pesanan terbaru</p>
+    </div>
+    <div class="flex gap-2.5">
+      <button id="mark-all-read" class="btn-ghost text-sm px-4 py-2 border border-gray-200 bg-white">
+        Tandai Semua Dibaca
+      </button>
+      <button id="clear-all-notif" class="btn-ghost text-sm px-4 py-2 text-red-600 hover:bg-red-50 hover:text-red-700 border border-red-100 bg-white">
+        Hapus Semua
+      </button>
+    </div>
+  </div>
+
+  <div class="card p-4 sm:p-6">
+    <div id="notifications-list" class="space-y-3">
+      {notifications.map((n) => (
+        <div 
+          class={`flex items-start justify-between p-4 rounded-xl border transition-all ${typeColor[n.type] || 'bg-gray-50 border-gray-200 text-gray-800'} ${n.read ? 'opacity-60 border-opacity-50' : 'shadow-sm font-medium'}`}
+          data-id={n.id}
+        >
+          <div class="flex-1 min-w-0 mr-4">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-bold text-sm">{n.title}</span>
+              {!n.read && <span class="w-2 h-2 rounded-full bg-blue-600 shrink-0" title="Belum dibaca"></span>}
+            </div>
+            <p class="text-sm text-gray-600 mt-1 leading-relaxed">{n.message}</p>
+            <span class="text-[10px] text-gray-400 mt-2 block">
+              {new Date(n.createdAt).toLocaleString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            {n.link && (
+              <a 
+                href={n.link} 
+                class="click-notif-link btn-primary text-xs py-1.5 px-3"
+                data-id={n.id}
+              >
+                Buka
+              </a>
+            )}
+            {!n.read && (
+              <button 
+                class="read-notif-btn btn-ghost text-xs py-1.5 px-2 text-gray-500 hover:text-gray-900 border border-gray-200 bg-white"
+                data-id={n.id}
+              >
+                Tandai Dibaca
+              </button>
+            )}
+            <button 
+              class="delete-notif-btn p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
+              data-id={n.id}
+              aria-label="Hapus"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {notifications.length === 0 && (
+        <div class="text-center py-12 text-gray-400">
+          <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          <p class="font-medium text-sm">Tidak ada pemberitahuan baru</p>
+        </div>
+      )}
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Mark single read
+  document.querySelectorAll('.read-notif-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const el = e.currentTarget as HTMLButtonElement;
+      const id = el.dataset.id;
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Gagal memperbarui status notifikasi');
+      }
+    });
+  });
+
+  // Mark single read on link click
+  document.querySelectorAll('.click-notif-link').forEach(link => {
+    link.addEventListener('click', async (e) => {
+      const el = e.currentTarget as HTMLAnchorElement;
+      const id = el.dataset.id;
+      // Background request to mark read, don't await blocking redirection
+      fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    });
+  });
+
+  // Delete single
+  document.querySelectorAll('.delete-notif-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const el = e.currentTarget as HTMLButtonElement;
+      const id = el.dataset.id;
+      if (!confirm('Hapus notifikasi ini?')) return;
+      const res = await fetch('/api/admin/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        el.closest('[data-id]')?.remove();
+      } else {
+        alert('Gagal menghapus notifikasi');
+      }
+    });
+  });
+
+  // Mark all read
+  document.getElementById('mark-all-read')?.addEventListener('click', async () => {
+    const res = await fetch('/api/admin/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Gagal memproses permintaan');
+    }
+  });
+
+  // Clear all
+  document.getElementById('clear-all-notif')?.addEventListener('click', async () => {
+    if (!confirm('Hapus semua pemberitahuan? Tindakan ini tidak bisa dibatalkan.')) return;
+    const res = await fetch('/api/admin/notifications', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Gagal menghapus pemberitahuan');
+    }
+  });
+</script>

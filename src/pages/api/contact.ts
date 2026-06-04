@@ -12,7 +12,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const name = [firstName, lastName].filter(Boolean).join(' ');
 
-    await prisma.contact.create({
+    const contact = await prisma.contact.create({
       data: {
         name,
         email,
@@ -20,6 +20,16 @@ export const POST: APIRoute = async ({ request }) => {
         company: company || null,
         type: 'message',
         notes: message,
+      },
+    });
+
+    // Create Notification for Admin
+    await prisma.notification.create({
+      data: {
+        title: 'Pesan Baru',
+        message: `Pesan baru dari ${name}${company ? ` (${company})` : ''}: "${message.slice(0, 50)}${message.length > 50 ? '...' : ''}"`,
+        type: 'info',
+        link: '/admin/crm/messages',
       },
     });
 

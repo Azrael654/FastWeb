@@ -19,13 +19,14 @@ const navItems = [
   { href: '/admin/coupons', label: 'Kupon', icon: 'percent', key: 'coupons' },
   { href: '/admin/users', label: 'Pengguna', icon: 'user', key: 'users' },
   { href: '/admin/popups', label: 'Pop-up', icon: 'bell', key: 'popups' },
+  { href: '/admin/notifications', label: 'Notifikasi', icon: 'bell', key: 'notifications' },
   { href: '/admin/logs', label: 'Log Aktivitas', icon: 'activity', key: 'logs' },
   { href: '/admin/config', label: 'Konfigurasi', icon: 'settings', key: 'config' },
 ];
 
 const visibleNavItems = navItems.filter(item => {
   if (user.isSystem) return true;
-  if (item.key === 'overview' || item.key === 'statistics') return true;
+  if (item.key === 'overview' || item.key === 'statistics' || item.key === 'notifications') return true;
   const modKey = item.key === 'categories' ? 'products' : item.key === 'messages' ? 'crm' : item.key;
   return user.permissions?.[modKey]?.view === true;
 });
