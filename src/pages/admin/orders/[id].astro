@@ -183,16 +183,19 @@ const statusColor: Record<string, string> = {
   });
 
   document.getElementById('update-status-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    btn.textContent = 'Memproses...';
+    const btn = e.currentTarget as HTMLButtonElement;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
+    }
 
-    const status = document.getElementById('status-select').value;
-    const msg = document.getElementById('status-msg');
+    const statusSelect = document.getElementById('status-select') as HTMLSelectElement;
+    const status = statusSelect ? statusSelect.value : '';
+    const msg = document.getElementById('status-msg') as HTMLElement;
     
     try {
       let paymentProofUrl = undefined;
-      const fileInput = document.getElementById('payment-proof-file');
+      const fileInput = document.getElementById('payment-proof-file') as HTMLInputElement;
       if (fileInput && fileInput.files && fileInput.files.length > 0) {
         const fd = new FormData();
         fd.append('file', fileInput.files[0]);
@@ -202,7 +205,7 @@ const statusColor: Record<string, string> = {
         paymentProofUrl = uploadData.url;
       }
 
-      const paymentAccountSelect = document.getElementById('payment-account-select');
+      const paymentAccountSelect = document.getElementById('payment-account-select') as HTMLSelectElement;
       const paymentAccountId = paymentAccountSelect ? paymentAccountSelect.value : undefined;
 
       const res = await fetch(`/api/orders/${orderId}`, {
@@ -213,22 +216,30 @@ const statusColor: Record<string, string> = {
       const resData = await res.json();
 
       if (res.ok) {
-        msg.textContent = 'Status berhasil diupdate!';
-        msg.className = 'mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700';
-        msg.classList.remove('hidden');
+        if (msg) {
+          msg.textContent = 'Status berhasil diupdate!';
+          msg.className = 'mb-3 text-sm p-2 rounded-lg bg-green-50 text-green-700';
+          msg.classList.remove('hidden');
+        }
         setTimeout(() => location.reload(), 1000);
       } else {
-        msg.textContent = resData.error || 'Gagal mengupdate status.';
-        msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
-        msg.classList.remove('hidden');
+        if (msg) {
+          msg.textContent = resData.error || 'Gagal mengupdate status.';
+          msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
+          msg.classList.remove('hidden');
+        }
       }
-    } catch (error) { 
-      msg.textContent = error.message || 'Error jaringan'; 
-      msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
-      msg.classList.remove('hidden'); 
+    } catch (error: any) {
+      if (msg) {
+        msg.textContent = error.message || 'Error jaringan'; 
+        msg.className = 'mb-3 text-sm p-2 rounded-lg bg-red-50 text-red-700';
+        msg.classList.remove('hidden'); 
+      }
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Update Status';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Update Status';
+      }
     }
   });
 
