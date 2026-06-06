@@ -3,13 +3,13 @@ import MainLayout from "../../layouts/MainLayout.astro";
 import prisma from "../../lib/prisma";
 
 const search = Astro.url.searchParams.get("search") || "";
-const categoryId = Astro.url.searchParams.get("category") || "";
+const categorySlug = Astro.url.searchParams.get("category") || "";
 const page = parseInt(Astro.url.searchParams.get("page") || "1");
 const limit = 12;
 
 const where: any = {};
 if (search) where.name = { contains: search, mode: "insensitive" };
-if (categoryId) where.categoryId = categoryId;
+if (categorySlug) where.category = { slug: categorySlug };
 
 const [products, totalCount, categories] = await Promise.all([
   prisma.product.findMany({
@@ -58,7 +58,7 @@ const totalPages = Math.ceil(totalCount / limit);
                     type="radio"
                     name="category"
                     value=""
-                    checked={!categoryId}
+                    checked={!categorySlug}
                     class="text-blue-600"
                   />
                   <span class="text-sm text-gray-700">Semua Kategori</span>
@@ -69,8 +69,8 @@ const totalPages = Math.ceil(totalCount / limit);
                       <input
                         type="radio"
                         name="category"
-                        value={cat.id}
-                        checked={categoryId === cat.id}
+                        value={cat.slug}
+                        checked={categorySlug === cat.slug}
                         class="text-blue-600"
                       />
                       <span class="text-sm text-gray-700">{cat.name}</span>
@@ -81,7 +81,7 @@ const totalPages = Math.ceil(totalCount / limit);
             </div>
             <button type="submit" class="btn-primary w-full">Filter</button>
             {
-              (search || categoryId) && (
+              (search || categorySlug) && (
                 <a href="/shop" class="btn-ghost w-full mt-2 text-sm">
                   Reset Filter
                 </a>
@@ -184,7 +184,7 @@ const totalPages = Math.ceil(totalCount / limit);
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
                 const params = new URLSearchParams();
                 if (search) params.set("search", search);
-                if (categoryId) params.set("category", categoryId);
+                if (categorySlug) params.set("category", categorySlug);
                 params.set("page", String(p));
                 return (
                   <a
