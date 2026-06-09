@@ -400,3 +400,16 @@ model ActivityLog {
 
   @@map("activity_logs")
 }
+
+model StoreConfig {
+  id        String   @id @default("singleton")
+  storeName String   @default("Fast Print")
+  tagline   String   @default("Printing Solution")
+  address   String   @default("Jl. Printing No. 123, Jakarta")
+  phone     String   @default("+62 812-3456-7890")
+  email     String   @default("info@fastprint.id")
+  whatsapp  String   @default("62812345678")
+  updatedAt DateTime @updatedAt
+
+  @@map("store_config")
+}
