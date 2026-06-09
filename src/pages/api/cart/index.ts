@@ -28,12 +28,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const body = await request.json();
   const { productId, name, slug, image, price, qty, dimension, options, designUrl } = body;
 
-  // Check if same product+options combo already in cart
+  // Check if exact same product+options+dimension+price+designUrl already in cart
   const existing = await prisma.cartItem.findFirst({
     where: {
       userId: user.id,
       productId,
-      options: { equals: options },
+      options: { equals: options ?? {} },
+      dimension: dimension ?? 1,
+      price,
+      designUrl: designUrl ?? null,
     },
   });
 
