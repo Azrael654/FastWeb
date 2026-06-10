@@ -5,6 +5,7 @@ import prisma from "../../../lib/prisma";
 const now = new Date();
 const startParam = Astro.url.searchParams.get("start");
 const endParam = Astro.url.searchParams.get("end");
+const categoryParam = Astro.url.searchParams.get("category") || "";
 
 let filterStart: Date | undefined;
 let filterEnd: Date | undefined;
@@ -14,9 +15,9 @@ if (startParam) {
   filterEnd = endParam ? new Date(endParam + "T23:59:59") : new Date();
 }
 
-const txWhere = filterStart
-  ? { date: { gte: filterStart, ...(filterEnd ? { lte: filterEnd } : {}) } }
-  : {};
+const txWhere: any = {};
+if (filterStart) txWhere.date = { gte: filterStart, ...(filterEnd ? { lte: filterEnd } : {}) };
+if (categoryParam) txWhere.category = categoryParam;
 
 const [accounts, transactions, categories] = await Promise.all([
   prisma.account.findMany({ orderBy: { name: "asc" } }),
@@ -40,6 +41,15 @@ const monthExpense = transactions
 const startInputVal = startParam || "";
 const endInputVal = endParam || "";
 const todayStr = now.toISOString().slice(0, 10);
+
+// Build export query string
+const exportParams = new URLSearchParams();
+if (startParam) exportParams.set("start", startParam);
+if (endParam) exportParams.set("end", endParam);
+if (categoryParam) exportParams.set("category", categoryParam);
+const exportQs = exportParams.toString() ? `?${exportParams.toString()}` : "";
+
+const hasActiveFilter = !!(startInputVal || categoryParam);
 ---
 
 <AdminLayout title="Keuangan" currentPage="finance">
@@ -201,11 +211,24 @@ const todayStr = now.toISOString().slice(0, 10);
               max={todayStr}
               class="input-field text-xs py-1.5 px-2"
             />
+            <select
+              name="category"
+              class="input-field text-xs py-1.5 px-2"
+            >
+              <option value="">Semua Kategori</option>
+              {
+                categories.map((c) => (
+                  <option value={c.name} selected={categoryParam === c.name}>
+                    {c.name}
+                  </option>
+                ))
+              }
+            </select>
             <button type="submit" class="btn-primary text-xs py-1.5 px-3"
               >Filter</button
             >
             {
-              startInputVal && (
+              hasActiveFilter && (
                 <a
                   href="/admin/finance"
                   class="btn-ghost text-xs py-1.5 px-2 text-gray-500"
@@ -216,7 +239,7 @@ const todayStr = now.toISOString().slice(0, 10);
             }
           </form>
           <a
-            href={`/api/export-finance${startParam ? `?start=${startParam}&end=${endParam}` : ""}`}
+            href={`/api/export-finance${exportQs}`}
             class="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1 border border-gray-200"
             download
           >

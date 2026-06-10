@@ -1,4 +1,5 @@
 ---
+
 import MainLayout from "../../layouts/MainLayout.astro";
 import prisma from "../../lib/prisma";
 
@@ -21,6 +22,9 @@ const optionsByType = product.productOptions.reduce((acc: any, opt) => {
   acc[opt.type].push(opt);
   return acc;
 }, {});
+
+const storeConfig = await prisma.storeConfig.findUnique({ where: { id: 'singleton' } });
+const waNumber = storeConfig?.whatsapp || '62812345678';
 
 const images = Array.isArray(product.imagesArray) ? product.imagesArray : [];
 if (product.image && !images.includes(product.image))
@@ -282,7 +286,7 @@ if (product.image && !images.includes(product.image))
             Tambah ke Keranjang
           </button>
           <a
-            href={`https://wa.me/62812345678?text=Halo, saya ingin memesan ${encodeURIComponent(product.name)}`}
+            href={`https://wa.me/${waNumber}?text=Halo, saya ingin memesan ${encodeURIComponent(product.name)}`}
             target="_blank"
             class="btn-secondary px-5 py-3"
           >
@@ -338,15 +342,18 @@ if (product.image && !images.includes(product.image))
   const container = document.getElementById("product-container");
   if (container) {
     const product = JSON.parse(container.dataset.product || "{}");
-    let selectedOptions: Record<string, { id: string; name: string; priceAdj: number }> = {};
-    
+    let selectedOptions: Record<
+      string,
+      { id: string; name: string; priceAdj: number }
+    > = {};
+
     // Initialize default selected options
     document.querySelectorAll(".option-btn.is-active").forEach((btn) => {
       const el = btn as HTMLElement;
       selectedOptions[el.dataset.optionType!] = {
         id: el.dataset.optionId!,
         name: el.dataset.optionName!,
-        priceAdj: parseFloat(el.dataset.priceAdj || "0")
+        priceAdj: parseFloat(el.dataset.priceAdj || "0"),
       };
     });
 
@@ -409,10 +416,15 @@ if (product.image && !images.includes(product.image))
               "border-blue-600",
               "bg-blue-50",
               "text-blue-700",
-              "is-active"
+              "is-active",
             );
           });
-        btn.classList.add("border-blue-600", "bg-blue-50", "text-blue-700", "is-active");
+        btn.classList.add(
+          "border-blue-600",
+          "bg-blue-50",
+          "text-blue-700",
+          "is-active",
+        );
         selectedOptions[type] = {
           id: (btn as HTMLElement).dataset.optionId!,
           name: (btn as HTMLElement).dataset.optionName!,
