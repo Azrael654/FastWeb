@@ -12,8 +12,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   const body = await request.json();
-  const cat = await prisma.category.create({ data: body });
-  
+
+  const cat = await prisma.category.create({
+    data: {
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+      image: body.image,
+      showInHome: body.showInHome,
+      showInFooter: body.showInFooter,
+    }
+  });
+
   await logActivity(request, {
     userId: admin.id,
     userName: admin.name,
