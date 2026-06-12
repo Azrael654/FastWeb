@@ -63,7 +63,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   try {
     const product = await prisma.product.findUnique({ where: { id: params.id } });
     await prisma.product.delete({ where: { id: params.id } });
-    
+
     if (product) {
       await logActivity(request, {
         userId: admin.id,

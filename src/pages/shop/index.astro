@@ -164,7 +164,7 @@ const totalPages = Math.ceil(totalCount / limit);
                       <p class="text-blue-600 font-bold">
                         {product.pricingType === "fixed"
                           ? `Rp ${Number(product.price).toLocaleString("id")}`
-                          : `Mulai Rp ${Number(product.unitPrice).toLocaleString("id")}`}
+                          : `Mulai Rp ${Number(product.price).toLocaleString("id")}`}
                       </p>
                       <span class="text-xs text-blue-600 font-medium group-hover:underline">
                         Detail →

@@ -82,10 +82,7 @@ const existingOptionGroups = Object.entries(
             <label class="label">Harga Dasar (Rp)</label>
             <input name="basePrice" type="number" min="0" step="100" value={product.basePrice ? Number(product.basePrice) : ''} class="input-field" placeholder="20000" />
           </div>
-          <div id="unit-price-wrap" class={product.pricingType.startsWith('area') ? '' : 'hidden'}>
-            <label class="label">Harga per Unit</label>
-            <input name="unitPrice" type="number" min="0" step="100" value={product.unitPrice ? Number(product.unitPrice) : ''} class="input-field" />
-          </div>
+
         </div>
 
         <div id="pricing-unit-wrap" class={product.pricingType.startsWith('area') ? '' : 'hidden'}>
@@ -162,7 +159,6 @@ const existingOptionGroups = Object.entries(
   pricingType?.addEventListener('change', () => {
     const isArea = pricingType.value.startsWith('area');
     document.getElementById('pricing-unit-wrap')?.classList.toggle('hidden', !isArea);
-    document.getElementById('unit-price-wrap')?.classList.toggle('hidden', !isArea);
   });
 
   // --- Image Gallery Logic ---
@@ -321,7 +317,6 @@ const existingOptionGroups = Object.entries(
       data.isFeatured = fd.get('isFeatured') === 'true';
       data.price = parseFloat(data.price) || 0;
       data.basePrice = parseFloat(data.basePrice) || data.price;
-      if (data.unitPrice) data.unitPrice = parseFloat(data.unitPrice);
       if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const id = data.id;
 
