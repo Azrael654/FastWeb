@@ -41,7 +41,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   }
 };
 
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   const user = getSessionUser(cookies);
   if (!user || user.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
