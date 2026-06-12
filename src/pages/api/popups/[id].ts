@@ -12,16 +12,48 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     const popup = await prisma.popup.update({
       where: { id: params.id },
       data: {
-        type: body.type !== undefined ? body.type : undefined,
-        title: body.title,
-        content: body.content !== undefined ? (body.type === 'image_only' ? null : body.content) : undefined,
-        imageUrl: body.imageUrl !== undefined ? body.imageUrl : undefined,
-        linkUrl: body.linkUrl !== undefined ? body.linkUrl : undefined,
-        linkText: body.linkText !== undefined ? (body.type === 'image_only' ? null : body.linkText) : undefined,
-        isActive: body.isActive !== undefined ? body.isActive === true : undefined,
-        displayMode: body.displayMode,
-        delaySeconds: body.delaySeconds !== undefined ? Number(body.delaySeconds) : undefined,
-      }
+        ...(body.type !== undefined && {
+          type: body.type,
+        }),
+
+        ...(body.title !== undefined && {
+          title: body.title,
+        }),
+
+        ...(body.content !== undefined && {
+          content:
+            body.type === 'image_only'
+              ? null
+              : body.content,
+        }),
+
+        ...(body.imageUrl !== undefined && {
+          imageUrl: body.imageUrl,
+        }),
+
+        ...(body.linkUrl !== undefined && {
+          linkUrl: body.linkUrl,
+        }),
+
+        ...(body.linkText !== undefined && {
+          linkText:
+            body.type === 'image_only'
+              ? null
+              : body.linkText,
+        }),
+
+        ...(body.isActive !== undefined && {
+          isActive: body.isActive,
+        }),
+
+        ...(body.displayMode !== undefined && {
+          displayMode: body.displayMode,
+        }),
+
+        ...(body.delaySeconds !== undefined && {
+          delaySeconds: Number(body.delaySeconds),
+        }),
+      },
     });
 
     await logActivity(request, {
@@ -38,7 +70,7 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
   }
 };
 
-export const DELETE: APIRoute = async ({ params, cookies }) => {
+export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
