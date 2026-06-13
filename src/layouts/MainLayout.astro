@@ -1,12 +1,15 @@
 ---
-import '../styles/global.css';
-import Navbar from '../components/storefront/Navbar.astro';
-import Footer from '../components/storefront/Footer.astro';
-import { getSessionUser } from '../lib/auth';
-import prisma from '../lib/prisma';
+import "../styles/global.css";
+import Navbar from "../components/storefront/Navbar.astro";
+import Footer from "../components/storefront/Footer.astro";
+import { getSessionUser } from "../lib/auth";
+import prisma from "../lib/prisma";
 
 const user = getSessionUser(Astro.cookies);
-const activePopups = await prisma.popup.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
+const activePopups = await prisma.popup.findMany({
+  where: { isActive: true },
+  orderBy: { createdAt: "desc" },
+});
 
 interface Props {
   title?: string;
@@ -14,14 +17,22 @@ interface Props {
   image?: string;
 }
 
+const storeConfig = await prisma.storeConfig.findUnique({
+  where: { id: "singleton" },
+});
+const defaultStoreName = storeConfig?.storeName || "Fast Print";
+const defaultTagline = storeConfig?.tagline;
+const defaultTitle = `${defaultStoreName} – ${defaultTagline}`;
+const defaultDesc = `${defaultStoreName} menyediakan layanan cetak berkualitas tinggi dengan harga terjangkau. Banner, brosur, kartu nama, packaging, dan banyak lagi.`;
+
 const {
-  title = 'Fast Print – Solusi Cetak Profesional',
-  description = 'Fast Print menyediakan layanan cetak berkualitas tinggi dengan harga terjangkau. Banner, brosur, kartu nama, spanduk, dan banyak lagi.',
-  image = '/og-image.png',
+  title = defaultTitle,
+  description = defaultDesc,
+  image = "/og-image.png",
 } = Astro.props;
 ---
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
@@ -34,7 +45,10 @@ const {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <title>{title}</title>
   </head>
   <body class="bg-white text-gray-900 antialiased overflow-x-hidden">
@@ -45,47 +59,74 @@ const {
     <Footer />
 
     <!-- Popups -->
-    {activePopups.length > 0 && (
-      <div id="store-popups-data" class="hidden" data-popups={JSON.stringify(activePopups)}></div>
-    )}
-    
-    <div id="store-popup-container" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
-      <div class="bg-white rounded-2xl w-full shadow-2xl overflow-hidden relative transform scale-95 transition-transform duration-300" id="store-popup-card" style="max-width:520px">
-        <button id="store-popup-close" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/10 hover:bg-black/20 text-gray-800 rounded-full transition-colors z-10">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    {
+      activePopups.length > 0 && (
+        <div
+          id="store-popups-data"
+          class="hidden"
+          data-popups={JSON.stringify(activePopups)}
+        />
+      )
+    }
+
+    <div
+      id="store-popup-container"
+      class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"
+    >
+      <div
+        class="bg-white rounded-2xl w-full shadow-2xl overflow-hidden relative transform scale-95 transition-transform duration-300"
+        id="store-popup-card"
+        style="max-width:520px"
+      >
+        <button
+          id="store-popup-close"
+          class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/10 hover:bg-black/20 text-gray-800 rounded-full transition-colors z-10"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            ><path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"></path></svg
+          >
         </button>
         <div id="store-popup-content-wrapper"></div>
       </div>
     </div>
 
     <script>
-      const popupsDataEl = document.getElementById('store-popups-data');
+      const popupsDataEl = document.getElementById("store-popups-data");
       if (popupsDataEl) {
-        const popups = JSON.parse(popupsDataEl.dataset.popups || '[]');
-        const container = document.getElementById('store-popup-container')!;
-        const card      = document.getElementById('store-popup-card')!;
-        const wrapper   = document.getElementById('store-popup-content-wrapper')!;
-        const closeBtn  = document.getElementById('store-popup-close')!;
+        const popups = JSON.parse(popupsDataEl.dataset.popups || "[]");
+        const container = document.getElementById("store-popup-container")!;
+        const card = document.getElementById("store-popup-card")!;
+        const wrapper = document.getElementById("store-popup-content-wrapper")!;
+        const closeBtn = document.getElementById("store-popup-close")!;
 
         let currentPopup: any = null;
 
         const showPopup = (p: any) => {
           currentPopup = p;
-          let html = '';
+          let html = "";
 
-          if (p.type === 'image_only') {
+          if (p.type === "image_only") {
             // ── Image-Only: transparent card, image floats on dark overlay ───
-            card.style.maxWidth = '640px';
+            card.style.maxWidth = "640px";
             // Remove white card background — image stands alone on backdrop
             card.className = card.className
-              .replace('bg-white', '')
-              .replace('shadow-2xl', '')
-              .replace('rounded-2xl', '');
-            card.style.background = 'transparent';
-            card.style.boxShadow  = 'none';
+              .replace("bg-white", "")
+              .replace("shadow-2xl", "")
+              .replace("rounded-2xl", "");
+            card.style.background = "transparent";
+            card.style.boxShadow = "none";
 
             // Dark semi-transparent close button sits top-right of image
-            closeBtn.className = 'absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors z-10';
+            closeBtn.className =
+              "absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors z-10";
 
             if (p.linkUrl) {
               html = `<a href="${p.linkUrl}" target="_blank" rel="noopener noreferrer" class="block">
@@ -94,18 +135,21 @@ const {
             } else {
               html = `<img src="${p.imageUrl}" class="w-full block" style="max-height:80vh;object-fit:contain;border-radius:12px;" alt="${p.title}" />`;
             }
-
           } else {
             // ── Full: restore white card, title + content + link button ───────
-            card.style.maxWidth  = '512px';
-            card.style.background = '';
-            card.style.boxShadow  = '';
+            card.style.maxWidth = "512px";
+            card.style.background = "";
+            card.style.boxShadow = "";
             // Re-add card classes if they were stripped by a previous image_only show
-            if (!card.className.includes('bg-white'))  card.className += ' bg-white';
-            if (!card.className.includes('shadow-2xl')) card.className += ' shadow-2xl';
-            if (!card.className.includes('rounded-2xl')) card.className += ' rounded-2xl';
+            if (!card.className.includes("bg-white"))
+              card.className += " bg-white";
+            if (!card.className.includes("shadow-2xl"))
+              card.className += " shadow-2xl";
+            if (!card.className.includes("rounded-2xl"))
+              card.className += " rounded-2xl";
 
-            closeBtn.className = 'absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/10 hover:bg-black/20 text-gray-800 rounded-full transition-colors z-10';
+            closeBtn.className =
+              "absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-black/10 hover:bg-black/20 text-gray-800 rounded-full transition-colors z-10";
 
             if (p.imageUrl) {
               html += `<img src="${p.imageUrl}" class="w-full object-cover" style="max-height:280px;" alt="${p.title}" />`;
@@ -113,47 +157,60 @@ const {
             html += `<div class="p-6 text-center">`;
             html += `<h2 class="text-2xl font-bold text-gray-900 mb-2">${p.title}</h2>`;
             if (p.content) {
-              html += `<p class="text-gray-600 mb-6 text-sm leading-relaxed">${p.content.replace(/\n/g, '<br/>')}</p>`;
+              html += `<p class="text-gray-600 mb-6 text-sm leading-relaxed">${p.content.replace(/\n/g, "<br/>")}</p>`;
             }
             if (p.linkUrl) {
-              html += `<a href="${p.linkUrl}" class="inline-block btn-primary px-8">${p.linkText || 'Cek Sekarang'}</a>`;
+              html += `<a href="${p.linkUrl}" class="inline-block btn-primary px-8">${p.linkText || "Cek Sekarang"}</a>`;
             }
             html += `</div>`;
           }
 
           wrapper.innerHTML = html;
-          container.classList.remove('hidden');
+          container.classList.remove("hidden");
           setTimeout(() => {
-            container.classList.remove('opacity-0');
-            card.classList.remove('scale-95');
+            container.classList.remove("opacity-0");
+            card.classList.remove("scale-95");
           }, 50);
 
-          if (p.displayMode === 'session') {
-            sessionStorage.setItem(`popup_${p.id}`, 'shown');
+          if (p.displayMode === "session") {
+            sessionStorage.setItem(`popup_${p.id}`, "shown");
           }
         };
 
         const closePopup = () => {
-          container.classList.add('opacity-0');
-          card.classList.add('scale-95');
-          setTimeout(() => container.classList.add('hidden'), 300);
-          if (currentPopup && currentPopup.displayMode === 'once') {
-            localStorage.setItem(`popup_${currentPopup.id}`, 'shown');
+          container.classList.add("opacity-0");
+          card.classList.add("scale-95");
+          setTimeout(() => container.classList.add("hidden"), 300);
+          if (currentPopup && currentPopup.displayMode === "once") {
+            localStorage.setItem(`popup_${currentPopup.id}`, "shown");
           }
         };
 
-        closeBtn.addEventListener('click', closePopup);
-        container.addEventListener('click', (e) => { if (e.target === container) closePopup(); });
+        closeBtn.addEventListener("click", closePopup);
+        container.addEventListener("click", (e) => {
+          if (e.target === container) closePopup();
+        });
 
         const popupToShow = popups.find((p: any) => {
-          if (p.displayMode === 'always') return true;
-          if (p.displayMode === 'session' && !sessionStorage.getItem(`popup_${p.id}`)) return true;
-          if (p.displayMode === 'once'   && !localStorage.getItem(`popup_${p.id}`))    return true;
+          if (p.displayMode === "always") return true;
+          if (
+            p.displayMode === "session" &&
+            !sessionStorage.getItem(`popup_${p.id}`)
+          )
+            return true;
+          if (
+            p.displayMode === "once" &&
+            !localStorage.getItem(`popup_${p.id}`)
+          )
+            return true;
           return false;
         });
 
         if (popupToShow) {
-          setTimeout(() => showPopup(popupToShow), (popupToShow.delaySeconds || 0) * 1000);
+          setTimeout(
+            () => showPopup(popupToShow),
+            (popupToShow.delaySeconds || 0) * 1000,
+          );
         }
       }
     </script>
