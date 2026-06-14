@@ -2,12 +2,19 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 ---
 <AdminLayout title="Galeri Media" currentPage="gallery">
+
+  <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Galeri Media</h1>
       <p class="text-gray-500 text-sm mt-1">Kelola semua file gambar dan media yang diunggah</p>
     </div>
-    <div>
+    <div class="flex items-center gap-3">
+      <!-- Select Mode Toggle -->
+      <button id="toggle-select" class="btn-ghost flex items-center gap-2 text-sm" title="Mode pilih">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Pilih
+      </button>
       <label class="btn-primary cursor-pointer flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Unggah File Baru
@@ -16,15 +23,33 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     </div>
   </div>
 
+  <!-- Bulk Action Bar (hidden by default) -->
+  <div id="bulk-bar" class="hidden mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+      <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer" />
+      <span class="text-sm font-medium text-gray-700">Pilih Semua</span>
+    </label>
+    <span class="text-sm text-gray-500 ml-1" id="selected-count">0 dipilih</span>
+    <div class="ml-auto flex items-center gap-2">
+      <button id="cancel-select" class="btn-ghost text-sm py-1.5 px-3">Batal</button>
+      <button id="bulk-delete-btn" class="btn-danger text-sm py-1.5 px-3 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Hapus Terpilih
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
   <div id="loading" class="py-12 flex justify-center">
     <svg class="w-8 h-8 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
   </div>
 
+  <!-- Gallery Grid -->
   <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 hidden">
     <!-- Items rendered by JS -->
   </div>
 
-  <!-- Delete Modal -->
+  <!-- Single Delete Modal -->
   <div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
       <h3 class="text-lg font-bold text-gray-900 mb-2">Hapus File?</h3>
@@ -35,26 +60,61 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
       </div>
     </div>
   </div>
+
+  <!-- Bulk Delete Modal -->
+  <div id="bulk-delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-2">Hapus File Terpilih?</h3>
+      <p class="text-gray-600 mb-1" id="bulk-delete-info">Anda akan menghapus <strong id="bulk-delete-count">0</strong> file secara permanen.</p>
+      <p class="text-sm text-amber-600 mb-6">Tindakan ini tidak dapat dibatalkan.</p>
+      <div class="flex justify-end gap-3">
+        <button id="cancel-bulk-delete" class="btn-ghost">Batal</button>
+        <button id="confirm-bulk-delete" class="btn-danger">Hapus Semua</button>
+      </div>
+    </div>
+  </div>
+
 </AdminLayout>
 
 <script>
-  const galleryGrid = document.getElementById('gallery-grid')!;
-  const loading = document.getElementById('loading')!;
-  const uploadInput = document.getElementById('upload-input') as HTMLInputElement;
-  const deleteModal = document.getElementById('delete-modal')!;
-  const cancelDelete = document.getElementById('cancel-delete')!;
+  const galleryGrid    = document.getElementById('gallery-grid')!;
+  const loading        = document.getElementById('loading')!;
+  const uploadInput    = document.getElementById('upload-input') as HTMLInputElement;
+
+  // Single delete
+  const deleteModal    = document.getElementById('delete-modal')!;
+  const cancelDelete   = document.getElementById('cancel-delete')!;
   const confirmDeleteBtn = document.getElementById('confirm-delete')!;
 
-  let files: any[] = [];
-  let fileToDelete: string | null = null;
+  // Bulk select UI
+  const toggleSelectBtn  = document.getElementById('toggle-select')!;
+  const bulkBar          = document.getElementById('bulk-bar')!;
+  const selectAllChk     = document.getElementById('select-all') as HTMLInputElement;
+  const selectedCount    = document.getElementById('selected-count')!;
+  const cancelSelectBtn  = document.getElementById('cancel-select')!;
+  const bulkDeleteBtn    = document.getElementById('bulk-delete-btn') as HTMLButtonElement;
 
+  // Bulk delete modal
+  const bulkDeleteModal    = document.getElementById('bulk-delete-modal')!;
+  const cancelBulkDelete   = document.getElementById('cancel-bulk-delete')!;
+  const confirmBulkDelete  = document.getElementById('confirm-bulk-delete') as HTMLButtonElement;
+  const bulkDeleteCount    = document.getElementById('bulk-delete-count')!;
+
+  let files: any[]          = [];
+  let fileToDelete: string | null = null;
+  let selectedIds           = new Set<string>();
+  let isSelectMode          = false;
+
+  // ─── Load Gallery ────────────────────────────────────────────────────────────
   async function loadGallery() {
     loading.classList.remove('hidden');
     galleryGrid.classList.add('hidden');
     try {
       const res = await fetch('/api/admin/gallery');
       files = await res.json();
+      selectedIds.clear();
       renderGallery();
+      updateBulkBar();
     } catch (e) {
       console.error(e);
       alert('Gagal memuat galeri');
@@ -72,6 +132,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
   function renderGallery() {
     galleryGrid.innerHTML = '';
     if (files.length === 0) {
@@ -80,27 +141,52 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     }
 
     files.forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'group relative bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow';
-      
-      const usageHtml = f.usageCount > 0 
-        ? `<div class="absolute top-2 left-2 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md" title="${f.usage.map((u:any)=>u.module+': '+u.name).join('\n')}">Dipakai (${f.usageCount})</div>`
+      const isSelected  = selectedIds.has(f.id);
+      const canDelete   = f.usageCount === 0;
+
+      const usageHtml = f.usageCount > 0
+        ? `<div class="absolute top-2 left-2 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md" title="${f.usage.map((u: any) => u.module + ': ' + u.name).join('\n')}">Dipakai (${f.usageCount})</div>`
         : `<div class="absolute top-2 left-2 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded-md">Tidak dipakai</div>`;
+
+      // Checkbox (shown only in select mode)
+      const checkboxHtml = `
+        <div class="select-overlay absolute inset-0 flex items-start justify-end p-2 z-10 ${isSelectMode ? '' : 'hidden'}">
+          <input
+            type="checkbox"
+            data-id="${f.id}"
+            ${!canDelete ? 'disabled title="File sedang dipakai"' : ''}
+            class="file-checkbox w-5 h-5 rounded border-2 border-white shadow-md cursor-pointer accent-blue-600 ${!canDelete ? 'opacity-40 cursor-not-allowed' : ''}"
+            ${isSelected ? 'checked' : ''}
+          />
+        </div>`;
+
+      // Hover actions (shown only when NOT in select mode)
+      const hoverActionsHtml = `
+        <div class="hover-actions absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 ${isSelectMode ? 'pointer-events-none' : ''}">
+          <a href="${f.url}" target="_blank" class="w-8 h-8 bg-white text-gray-700 rounded-full flex items-center justify-center hover:bg-gray-100" title="Buka di tab baru">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          ${canDelete ? `
+          <button type="button" data-id="${f.id}" class="delete-btn w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600" title="Hapus">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+          ` : ''}
+        </div>`;
+
+      const item = document.createElement('div');
+      item.dataset.id = f.id;
+      item.className = [
+        'group relative bg-white border rounded-xl overflow-hidden flex flex-col shadow-sm transition-all cursor-pointer',
+        isSelected ? 'border-blue-500 ring-2 ring-blue-400 shadow-blue-100' : 'border-gray-200 hover:shadow-md',
+        isSelectMode && !canDelete ? 'opacity-60' : ''
+      ].join(' ');
 
       item.innerHTML = `
         <div class="relative aspect-square bg-gray-50 flex items-center justify-center p-2">
-          ${f.mimeType.startsWith('image') ? `<img src="${f.url}" class="max-w-full max-h-full object-contain" />` : `<div class="text-gray-400 font-mono text-xs text-center break-all">${f.originalName}</div>`}
+          ${f.mimeType.startsWith('image') ? `<img src="${f.url}" class="max-w-full max-h-full object-contain" loading="lazy" />` : `<div class="text-gray-400 font-mono text-xs text-center break-all">${f.originalName}</div>`}
           ${usageHtml}
-          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-             <a href="${f.url}" target="_blank" class="w-8 h-8 bg-white text-gray-700 rounded-full flex items-center justify-center hover:bg-gray-100" title="Buka di tab baru">
-               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-             </a>
-             ${f.usageCount === 0 ? `
-             <button type="button" data-id="${f.id}" class="delete-btn w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600" title="Hapus">
-               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-             </button>
-             ` : ''}
-          </div>
+          ${checkboxHtml}
+          ${hoverActionsHtml}
         </div>
         <div class="p-2.5 flex flex-col justify-center border-t border-gray-100 flex-1">
           <p class="text-xs font-medium text-gray-900 truncate" title="${f.originalName}">${f.originalName}</p>
@@ -110,18 +196,149 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
           </div>
         </div>
       `;
+
+      // Click card → toggle checkbox in select mode
+      item.addEventListener('click', (e) => {
+        if (!isSelectMode) return;
+        const chk = item.querySelector('.file-checkbox') as HTMLInputElement;
+        if (!chk || chk.disabled) return;
+        // Don't double-fire if the checkbox itself was clicked
+        if (e.target === chk) return;
+        chk.checked = !chk.checked;
+        chk.dispatchEvent(new Event('change'));
+      });
+
       galleryGrid.appendChild(item);
     });
 
+    // Single delete buttons
     document.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const id = (e.currentTarget as HTMLElement).dataset.id!;
         fileToDelete = id;
         deleteModal.classList.remove('hidden');
       });
     });
+
+    // Checkboxes
+    document.querySelectorAll('.file-checkbox').forEach(chk => {
+      chk.addEventListener('change', (e) => {
+        const cb  = e.target as HTMLInputElement;
+        const id  = cb.dataset.id!;
+        if (cb.checked) {
+          selectedIds.add(id);
+        } else {
+          selectedIds.delete(id);
+        }
+        updateBulkBar();
+        updateCardStyles();
+      });
+    });
   }
 
+  // ─── Select Mode Helpers ─────────────────────────────────────────────────────
+  function enterSelectMode() {
+    isSelectMode = true;
+    bulkBar.classList.remove('hidden');
+    toggleSelectBtn.classList.add('hidden');
+    renderGallery();
+  }
+
+  function exitSelectMode() {
+    isSelectMode = false;
+    selectedIds.clear();
+    bulkBar.classList.add('hidden');
+    toggleSelectBtn.classList.remove('hidden');
+    selectAllChk.checked = false;
+    renderGallery();
+  }
+
+  function updateBulkBar() {
+    const n = selectedIds.size;
+    selectedCount.textContent = `${n} dipilih`;
+    bulkDeleteBtn.disabled    = n === 0;
+
+    // Sync select-all state
+    const deletableFiles = files.filter(f => f.usageCount === 0);
+    selectAllChk.indeterminate = n > 0 && n < deletableFiles.length;
+    selectAllChk.checked       = deletableFiles.length > 0 && n === deletableFiles.length;
+  }
+
+  function updateCardStyles() {
+    document.querySelectorAll<HTMLElement>('[data-id]').forEach(card => {
+      const id = card.dataset.id!;
+      const selected = selectedIds.has(id);
+      card.classList.toggle('border-blue-500', selected);
+      card.classList.toggle('ring-2', selected);
+      card.classList.toggle('ring-blue-400', selected);
+      card.classList.toggle('shadow-blue-100', selected);
+      card.classList.toggle('border-gray-200', !selected);
+    });
+  }
+
+  // ─── Event Listeners ─────────────────────────────────────────────────────────
+  toggleSelectBtn.addEventListener('click', enterSelectMode);
+  cancelSelectBtn.addEventListener('click', exitSelectMode);
+
+  selectAllChk.addEventListener('change', () => {
+    const deletable = files.filter(f => f.usageCount === 0);
+    if (selectAllChk.checked) {
+      deletable.forEach(f => selectedIds.add(f.id));
+    } else {
+      selectedIds.clear();
+    }
+    // Sync checkboxes
+    document.querySelectorAll<HTMLInputElement>('.file-checkbox').forEach(chk => {
+      if (!chk.disabled) chk.checked = selectAllChk.checked;
+    });
+    updateBulkBar();
+    updateCardStyles();
+  });
+
+  // Open bulk delete modal
+  bulkDeleteBtn.addEventListener('click', () => {
+    bulkDeleteCount.textContent = String(selectedIds.size);
+    bulkDeleteModal.classList.remove('hidden');
+  });
+
+  cancelBulkDelete.addEventListener('click', () => {
+    bulkDeleteModal.classList.add('hidden');
+  });
+
+  confirmBulkDelete.addEventListener('click', async () => {
+    const ids = Array.from(selectedIds);
+    const prev = confirmBulkDelete.textContent!;
+    confirmBulkDelete.textContent = 'Menghapus...';
+    confirmBulkDelete.disabled    = true;
+
+    try {
+      const res = await fetch('/api/admin/gallery/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+
+      if (res.ok) {
+        files = files.filter(f => !ids.includes(f.id));
+        selectedIds.clear();
+        renderGallery();
+        updateBulkBar();
+        bulkDeleteModal.classList.add('hidden');
+        // Exit select mode if nothing left to select
+        if (files.filter(f => f.usageCount === 0).length === 0) exitSelectMode();
+      } else {
+        alert('Gagal menghapus file');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan');
+    } finally {
+      confirmBulkDelete.textContent = prev;
+      confirmBulkDelete.disabled    = false;
+    }
+  });
+
+  // Single delete
   cancelDelete.addEventListener('click', () => {
     deleteModal.classList.add('hidden');
     fileToDelete = null;
@@ -129,8 +346,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 
   confirmDeleteBtn.addEventListener('click', async () => {
     if (!fileToDelete) return;
-    
-    const prevText = confirmDeleteBtn.textContent;
+    const prev = confirmDeleteBtn.textContent!;
     confirmDeleteBtn.textContent = 'Menghapus...';
     (confirmDeleteBtn as HTMLButtonElement).disabled = true;
 
@@ -147,17 +363,17 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     } finally {
       deleteModal.classList.add('hidden');
       fileToDelete = null;
-      confirmDeleteBtn.textContent = prevText;
+      confirmDeleteBtn.textContent = prev;
       (confirmDeleteBtn as HTMLButtonElement).disabled = false;
     }
   });
 
+  // Upload
   uploadInput.addEventListener('change', async () => {
     if (!uploadInput.files || uploadInput.files.length === 0) return;
     const items = Array.from(uploadInput.files);
-    
-    // Add loading indicator to grid visually
     loading.classList.remove('hidden');
+    galleryGrid.classList.add('hidden');
 
     for (const file of items) {
       const fd = new FormData();
