@@ -88,7 +88,7 @@ const categories = await prisma.category.findMany({
                   href={`/shop?category=${cat.slug}`}
                   class="card-hover p-5 flex flex-col items-center text-center gap-3 group cursor-pointer"
                 >
-                  <div class="w-14 h-14 bg-blue-50 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center transition-colors">
+                  <div class="w-14 h-14 rounded-2xl flex items-center justify-center transition-colors">
                     {cat.image ? (
                       <img
                         src={cat.image}
@@ -97,7 +97,7 @@ const categories = await prisma.category.findMany({
                       />
                     ) : (
                       <svg
-                        class="w-7 h-7 text-blue-600 group-hover:text-white transition-colors"
+                        class="w-7 h-7 text-blue-600 transition-colors"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
