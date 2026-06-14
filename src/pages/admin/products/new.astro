@@ -239,7 +239,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   // --- End Image Gallery Logic ---
 
   // --- Options Builder ---
-  let optionGroups: { type: string; options: { name: string; priceAdj: string; isDefault: boolean }[] }[] = [];
+  let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isDefault: boolean; image?: string }[] }[] = [];
 
   function renderGroups() {
     const container = document.getElementById('options-container')!;
@@ -250,29 +250,54 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       const groupEl = document.createElement('div');
       groupEl.className = 'border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50';
       groupEl.innerHTML = `
-        <div class="flex items-center gap-3">
-          <div class="flex-1">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
             <label class="label text-xs">Nama Grup (Tipe)</label>
-            <input type="text" placeholder="Contoh: Material, Finishing, Ukuran" value="${group.type}" data-gi="${gi}" data-field="type"
-              class="group-type-input input-field text-sm py-2" />
+            <input type="text" placeholder="Contoh: Material, Finishing" value="${group.type}" data-gi="${gi}" data-field="type"
+              class="group-field-input input-field text-sm py-2" />
           </div>
-          <button type="button" data-gi="${gi}" class="remove-group-btn mt-5 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <div>
+            <label class="label text-xs">Tipe Pemilihan</label>
+            <select class="group-field-input input-field text-sm py-2" data-gi="${gi}" data-field="selectorType">
+              <option value="dropdown" ${group.selectorType !== 'image_card' ? 'selected' : ''}>Dropdown (Tanpa Gambar)</option>
+              <option value="image_card" ${group.selectorType === 'image_card' ? 'selected' : ''}>Kartu Gambar</option>
+            </select>
+          </div>
+          <div>
+            <label class="label text-xs">Tooltip Grup (?)</label>
+            <input type="text" placeholder="Penjelasan (opsional)" value="${group.tooltip || ''}" data-gi="${gi}" data-field="tooltip"
+              class="group-field-input input-field text-sm py-2" />
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button type="button" data-gi="${gi}" class="remove-group-btn text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Hapus Grup
           </button>
         </div>
         <div class="space-y-2" id="opts-${gi}">
           ${group.options.map((opt, oi) => `
-            <div class="flex items-center gap-2" data-oi="${oi}">
-              <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
-                class="opt-field input-field text-sm py-1.5 flex-1" />
-              <div class="relative">
-                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
-                <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
-                  class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
+            <div class="bg-white p-3 border border-gray-200 rounded-lg space-y-2" data-oi="${oi}">
+              <div class="flex items-center gap-2">
+                <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
+                  class="opt-field input-field text-sm py-1.5 flex-1" />
+                <div class="relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
+                  <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
+                    class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
+                </div>
+                <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-400 hover:text-red-500 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
               </div>
-              <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-300 hover:text-red-500 transition-colors">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
+              ${group.selectorType === 'image_card' ? `
+              <div class="flex items-center gap-2">
+                <button type="button" class="btn-secondary text-xs px-2 py-1 whitespace-nowrap opt-img-btn" data-gi="${gi}" data-oi="${oi}">
+                  ${opt.image ? 'Ganti Gambar' : 'Pilih Gambar'}
+                </button>
+                <input type="hidden" value="${opt.image || ''}" data-gi="${gi}" data-oi="${oi}" data-field="image" class="opt-field" />
+                ${opt.image ? `<img src="${opt.image}" class="w-6 h-6 rounded object-cover border" />` : ''}
+              </div>` : ''}
             </div>`).join('')}
         </div>
         <button type="button" data-gi="${gi}" class="add-opt-btn text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
@@ -284,10 +309,13 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     });
 
     // Bind events
-    container.querySelectorAll('.group-type-input').forEach(el => {
+    container.querySelectorAll('.group-field-input').forEach(el => {
       el.addEventListener('input', (e) => {
-        const gi = parseInt((e.target as HTMLElement).dataset.gi!);
-        optionGroups[gi].type = (e.target as HTMLInputElement).value;
+        const input = e.target as HTMLInputElement | HTMLSelectElement;
+        const gi = parseInt(input.dataset.gi!);
+        const field = input.dataset.field as any;
+        (optionGroups[gi] as any)[field] = input.value;
+        if (field === 'selectorType') renderGroups(); // re-render to show/hide image button
       });
     });
     container.querySelectorAll('.opt-field').forEach(el => {
@@ -300,6 +328,23 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
           : (e.target as HTMLInputElement).value;
       });
     });
+    container.querySelectorAll('.opt-img-btn').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLElement;
+        const gi = parseInt(btn.dataset.gi!);
+        const oi = parseInt(btn.dataset.oi!);
+        if (typeof (window as any).openMediaPicker === 'function') {
+          const urls = await (window as any).openMediaPicker({ multiple: false });
+          if (urls && urls.length > 0) {
+            optionGroups[gi].options[oi].image = urls[0];
+            renderGroups();
+          }
+        } else {
+          alert("Media picker belum siap");
+        }
+      });
+    });
+
     container.querySelectorAll('.remove-group-btn').forEach(el => {
       el.addEventListener('click', (e) => {
         const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!);
@@ -356,12 +401,23 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       data.basePrice = parseFloat(data.basePrice) || data.price;
       if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
+      // Collect optionsConfig
+      data.optionsConfig = optionGroups.reduce((acc: any, g) => {
+        if (g.type.trim()) {
+          acc[g.type.trim().toLowerCase()] = {
+            selectorType: g.selectorType || 'dropdown',
+            tooltip: g.tooltip || ''
+          };
+        }
+        return acc;
+      }, {});
+
       // Collect options from builder
       const options = optionGroups
         .filter(g => g.type.trim())
         .flatMap(g => g.options
           .filter(o => o.name.trim())
-          .map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault }))
+          .map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault, image: o.image }))
         );
       data.options = options;
 

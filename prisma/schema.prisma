@@ -113,6 +113,7 @@ model Product {
   image        String?
   imagesArray  Json?    @default("[]")
   specifications Json?  @default("{}")
+  optionsConfig Json?   @default("{}")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -130,6 +131,8 @@ model ProductOption {
   value     String
   priceAdj  Decimal  @default(0) @db.Decimal(12, 2)
   isDefault Boolean  @default(false)
+  tooltip   String?
+  image     String?
   createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)

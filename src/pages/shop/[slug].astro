@@ -23,6 +23,8 @@ const optionsByType = product.productOptions.reduce((acc: any, opt) => {
   return acc;
 }, {});
 
+const optionsConfig = (product.optionsConfig as any) || {};
+
 const storeConfig = await prisma.storeConfig.findUnique({
   where: { id: "singleton" },
 });
@@ -156,9 +158,17 @@ if (product.image && !images.includes(product.image))
                   style="max-height: 120px;"
                   set:html={marked.parse(product.description)}
                 />
-                <div id="desc-fade" class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                <div
+                  id="desc-fade"
+                  class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"
+                />
               </div>
-              <button id="desc-toggle-btn" class="text-blue-600 font-medium text-sm mt-2 hidden hover:underline">Lihat Selengkapnya</button>
+              <button
+                id="desc-toggle-btn"
+                class="text-blue-600 font-medium text-sm mt-2 hidden hover:underline"
+              >
+                Lihat Selengkapnya
+              </button>
             </div>
           )
         }
@@ -236,23 +246,118 @@ if (product.image && !images.includes(product.image))
 
         <!-- Options -->
         {
-          Object.entries(optionsByType).map(([type, opts]: any) => (
-            <div class="mb-5">
-              <label class="label capitalize mb-2 block">{type}</label>
-              <select class="option-select input-field" data-option-type={type}>
-                {opts.map((opt: any) => (
-                  <option
-                    value={opt.id}
-                    data-option-name={opt.name}
-                    data-price-adj={opt.priceAdj}
-                    selected={opt.isDefault}
+          Object.entries(optionsByType).map(([type, opts]: any) => {
+            const cfg = optionsConfig[type.toLowerCase()] || {};
+            const selectorType = cfg.selectorType || "dropdown";
+            const groupTooltip = cfg.tooltip || "";
+
+            return (
+              <div class="mb-5">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <label class="label capitalize mb-0 block">{type}</label>
+                  {groupTooltip && (
+                    <div class="relative group flex items-center cursor-help">
+                      <svg
+                        class="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-gray-900 text-white text-xs rounded shadow-lg z-10 text-center font-medium">
+                        {groupTooltip}
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectorType === "image_card" ? (
+                  <div
+                    class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 option-card-group"
+                    data-option-type={type}
                   >
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))
+                    {opts.map((opt: any) => (
+                      <label class="cursor-pointer relative block">
+                        <input
+                          type="radio"
+                          name={`opt_${type}`}
+                          value={opt.id}
+                          class="peer sr-only option-card-input"
+                          data-option-name={opt.name}
+                          data-price-adj={opt.priceAdj}
+                          checked={opt.isDefault}
+                        />
+                        <div class="border-2 border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 peer-checked:border-blue-600 peer-checked:bg-blue-50 transition-all text-center">
+                          {opt.image ? (
+                            <img
+                              src={opt.image}
+                              alt={opt.name}
+                              class="w-full object-cover border-b border-gray-100"
+                            />
+                          ) : (
+                            <div class="w-full bg-gray-50 flex items-center justify-center border-b border-gray-100">
+                              <svg
+                                class="w-8 h-8 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                          <div class="p-2">
+                            <div
+                              class="text-[11px] sm:text-xs font-medium text-gray-900 truncate"
+                              title={opt.name}
+                            >
+                              {opt.name}
+                            </div>
+                            {Number(opt.priceAdj) !== 0 && (
+                              <div class="text-[10px] sm:text-[11px] text-gray-500 mt-0.5 truncate">
+                                +Rp {Number(opt.priceAdj).toLocaleString("id")}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <select
+                    class="option-select input-field"
+                    data-option-type={type}
+                  >
+                    {opts.map((opt: any) => (
+                      <option
+                        value={opt.id}
+                        data-option-name={opt.name}
+                        data-price-adj={opt.priceAdj}
+                        selected={opt.isDefault}
+                      >
+                        {opt.name}{" "}
+                        {Number(opt.priceAdj) !== 0
+                          ? `(+Rp ${Number(opt.priceAdj).toLocaleString("id")})`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            );
+          })
         }
         <div class="mb-6">
           <label class="label font-bold text-gray-900" for="design-upload"
@@ -352,7 +457,7 @@ if (product.image && !images.includes(product.image))
       { id: string; name: string; priceAdj: number }
     > = {};
 
-    // Initialize default selected options
+    // Initialize default selected options for dropdowns
     document.querySelectorAll(".option-select").forEach((select: Element) => {
       const sel = select as HTMLSelectElement;
       const selectedOpt = sel.options[sel.selectedIndex];
@@ -364,6 +469,23 @@ if (product.image && !images.includes(product.image))
         };
       }
     });
+
+    // Initialize default selected options for image cards
+    document
+      .querySelectorAll(".option-card-group")
+      .forEach((group: Element) => {
+        const type = (group as HTMLElement).dataset.optionType!;
+        const checkedInput = group.querySelector(
+          ".option-card-input:checked",
+        ) as HTMLInputElement;
+        if (checkedInput) {
+          selectedOptions[type] = {
+            id: checkedInput.value,
+            name: checkedInput.dataset.optionName!,
+            priceAdj: parseFloat(checkedInput.dataset.priceAdj || "0"),
+          };
+        }
+      });
 
     let startingSellingPrice =
       product.pricingType === "fixed"
@@ -429,6 +551,24 @@ if (product.image && !images.includes(product.image))
         }
       });
     });
+
+    document
+      .querySelectorAll(".option-card-input")
+      .forEach((input: Element) => {
+        input.addEventListener("change", (e) => {
+          const target = e.target as HTMLInputElement;
+          if (target.checked) {
+            const type = (target.closest(".option-card-group") as HTMLElement)
+              .dataset.optionType!;
+            selectedOptions[type] = {
+              id: target.value,
+              name: target.dataset.optionName!,
+              priceAdj: parseFloat(target.dataset.priceAdj || "0"),
+            };
+            calcPrice();
+          }
+        });
+      });
 
     document.getElementById("width")?.addEventListener("input", calcPrice);
     document.getElementById("height")?.addEventListener("input", calcPrice);
@@ -503,7 +643,7 @@ if (product.image && !images.includes(product.image))
     if (descEl && fadeEl && toggleBtn) {
       if (descEl.scrollHeight > 120) {
         toggleBtn.classList.remove("hidden");
-        
+
         toggleBtn.addEventListener("click", () => {
           const isExpanded = descEl.style.maxHeight !== "120px";
           if (isExpanded) {

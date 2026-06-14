@@ -21,7 +21,8 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   try {
     const body = await request.json();
-    const { id, options, ...dataToUpdate } = body; // remove id and options from update data
+    const { id, options, optionsConfig, ...dataToUpdate } = body; // remove id and options from update data
+    if (optionsConfig) dataToUpdate.optionsConfig = optionsConfig;
 
     const product = await prisma.$transaction(async (tx) => {
       // If options array is provided, replace all existing options
@@ -36,6 +37,7 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
               value: opt.value || opt.name,
               priceAdj: parseFloat(opt.priceAdj) || 0,
               isDefault: opt.isDefault === true || opt.isDefault === 'true',
+              image: opt.image || null,
             }))
           });
         }
