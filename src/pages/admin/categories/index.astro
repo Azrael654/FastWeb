@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
+import MediaPicker from '../../../components/admin/MediaPicker.astro';
 
 const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
 ---
@@ -49,13 +50,33 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
         <div><label class="label">Nama *</label><input name="name" required class="input-field text-sm" id="cat-name" /></div>
         <div><label class="label">Slug</label><input name="slug" id="cat-slug" class="input-field text-sm font-mono" /></div>
         <div><label class="label">Deskripsi</label><textarea name="description" class="input-field text-sm" rows="2"></textarea></div>
+        
+        <!-- Image Field -->
         <div>
           <label class="label">Gambar</label>
-          <div class="flex flex-col gap-2">
-            <input type="file" id="image-file" accept="image/*" class="input-field text-sm py-1.5" />
-            <input type="hidden" name="image" id="image-url" />
+          <input type="hidden" name="image" id="image-url" />
+          
+          <!-- Preview -->
+          <div id="cat-img-preview" class="hidden mb-2 relative inline-block">
+            <img id="cat-img-thumb" src="" alt="Preview" class="w-16 h-16 rounded-lg object-cover border border-gray-200" />
+            <button type="button" id="cat-img-clear" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="flex gap-2">
+            <label class="flex-1 btn-ghost text-sm cursor-pointer flex items-center justify-center gap-2 py-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Unggah File
+              <input type="file" id="image-file" accept="image/*" class="hidden" />
+            </label>
+            <button type="button" id="open-gallery-cat" class="flex-1 btn-ghost text-sm flex items-center justify-center gap-2 py-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Pilih dari Galeri
+            </button>
           </div>
         </div>
+
         <div class="flex gap-4 pt-1">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" id="cat-showHome" class="w-4 h-4 text-blue-600 rounded border-gray-300" checked />
@@ -73,14 +94,52 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       </form>
     </div>
   </div>
+
+  <MediaPicker />
 </AdminLayout>
 
 <script>
+  // ── Image preview helper ─────────────────────────────────────────────────────
+  function setCatImage(url: string) {
+    (document.getElementById('image-url') as HTMLInputElement).value = url;
+    const preview = document.getElementById('cat-img-preview')!;
+    const thumb   = document.getElementById('cat-img-thumb') as HTMLImageElement;
+    if (url) {
+      thumb.src = url;
+      preview.classList.remove('hidden');
+    } else {
+      preview.classList.add('hidden');
+    }
+  }
+
+  document.getElementById('cat-img-clear')?.addEventListener('click', () => {
+    setCatImage('');
+    (document.getElementById('image-file') as HTMLInputElement).value = '';
+  });
+
+  // Upload file → set preview
+  document.getElementById('image-file')?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => setCatImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  });
+
+  // Gallery picker
+  document.getElementById('open-gallery-cat')?.addEventListener('click', async () => {
+    const urls = await (window as any).openMediaPicker({ multiple: false });
+    if (urls && urls.length > 0) setCatImage(urls[0]);
+  });
+
+  // ── Modal open/close ─────────────────────────────────────────────────────────
   document.getElementById('add-cat-btn')?.addEventListener('click', () => {
     (document.getElementById('cat-form') as HTMLFormElement).reset();
     (document.getElementById('cat-id') as HTMLInputElement).value = '';
     (document.getElementById('cat-showHome') as HTMLInputElement).checked = true;
     (document.getElementById('cat-showFooter') as HTMLInputElement).checked = true;
+    setCatImage('');
     document.getElementById('cat-modal-title')!.textContent = 'Tambah Kategori';
     document.getElementById('cat-modal')?.classList.remove('hidden');
   });
@@ -92,19 +151,22 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       (document.getElementById('cat-name') as HTMLInputElement).value = el.dataset.name!;
       (document.getElementById('cat-slug') as HTMLInputElement).value = el.dataset.slug!;
       (document.querySelector('textarea[name="description"]') as HTMLTextAreaElement).value = el.dataset.desc!;
-      (document.getElementById('image-url') as HTMLInputElement).value = el.dataset.img!;
       (document.getElementById('cat-showHome') as HTMLInputElement).checked = el.dataset.showhome === 'true';
       (document.getElementById('cat-showFooter') as HTMLInputElement).checked = el.dataset.showfooter === 'true';
+      setCatImage(el.dataset.img || '');
       document.getElementById('cat-modal-title')!.textContent = 'Edit Kategori';
       document.getElementById('cat-modal')?.classList.remove('hidden');
     });
   });
 
   document.getElementById('close-cat-modal')?.addEventListener('click', () => document.getElementById('cat-modal')?.classList.add('hidden'));
+  
   document.getElementById('cat-name')?.addEventListener('input', (e) => {
     const slug = (e.target as HTMLInputElement).value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     (document.getElementById('cat-slug') as HTMLInputElement).value = slug;
   });
+
+  // ── Form submit ──────────────────────────────────────────────────────────────
   document.getElementById('cat-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
@@ -115,10 +177,10 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     try {
       const fd = new FormData(form);
       const data: any = Object.fromEntries(fd);
-      data.showInHome = (document.getElementById('cat-showHome') as HTMLInputElement).checked;
+      data.showInHome   = (document.getElementById('cat-showHome') as HTMLInputElement).checked;
       data.showInFooter = (document.getElementById('cat-showFooter') as HTMLInputElement).checked;
       
-      
+      // If user selected a file to upload, upload it first
       const fileInput = document.getElementById('image-file') as HTMLInputElement;
       if (fileInput.files && fileInput.files.length > 0) {
         const uploadFd = new FormData();
@@ -131,11 +193,12 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
           throw new Error('Gagal mengunggah gambar');
         }
       }
+      // Otherwise, data.image is already set from the hidden input (gallery pick)
 
       if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       
       const isEdit = !!data.id;
-      const url = isEdit ? `/api/categories/${data.id}` : '/api/categories';
+      const url    = isEdit ? `/api/categories/${data.id}` : '/api/categories';
       const method = isEdit ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -147,6 +210,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       submitBtn.textContent = 'Simpan';
     }
   });
+
   document.querySelectorAll('.delete-cat').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Hapus kategori? Produk yang terkait mungkin terpengaruh.')) return;
