@@ -1,0 +1,178 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+<AdminLayout title="Galeri Media" currentPage="gallery">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Galeri Media</h1>
+      <p class="text-gray-500 text-sm mt-1">Kelola semua file gambar dan media yang diunggah</p>
+    </div>
+    <div>
+      <label class="btn-primary cursor-pointer flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Unggah File Baru
+        <input type="file" id="upload-input" accept="image/*" class="hidden" multiple />
+      </label>
+    </div>
+  </div>
+
+  <div id="loading" class="py-12 flex justify-center">
+    <svg class="w-8 h-8 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+  </div>
+
+  <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 hidden">
+    <!-- Items rendered by JS -->
+  </div>
+
+  <!-- Delete Modal -->
+  <div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+      <h3 class="text-lg font-bold text-gray-900 mb-2">Hapus File?</h3>
+      <p class="text-gray-600 mb-6">File ini akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</p>
+      <div class="flex justify-end gap-3">
+        <button id="cancel-delete" class="btn-ghost">Batal</button>
+        <button id="confirm-delete" class="btn-danger">Hapus</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const galleryGrid = document.getElementById('gallery-grid')!;
+  const loading = document.getElementById('loading')!;
+  const uploadInput = document.getElementById('upload-input') as HTMLInputElement;
+  const deleteModal = document.getElementById('delete-modal')!;
+  const cancelDelete = document.getElementById('cancel-delete')!;
+  const confirmDeleteBtn = document.getElementById('confirm-delete')!;
+
+  let files: any[] = [];
+  let fileToDelete: string | null = null;
+
+  async function loadGallery() {
+    loading.classList.remove('hidden');
+    galleryGrid.classList.add('hidden');
+    try {
+      const res = await fetch('/api/admin/gallery');
+      files = await res.json();
+      renderGallery();
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memuat galeri');
+    } finally {
+      loading.classList.add('hidden');
+      galleryGrid.classList.remove('hidden');
+    }
+  }
+
+  function formatSize(bytes: number) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function renderGallery() {
+    galleryGrid.innerHTML = '';
+    if (files.length === 0) {
+      galleryGrid.innerHTML = '<div class="col-span-full py-12 text-center text-gray-500">Belum ada file di galeri.</div>';
+      return;
+    }
+
+    files.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'group relative bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow';
+      
+      const usageHtml = f.usageCount > 0 
+        ? `<div class="absolute top-2 left-2 bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md" title="${f.usage.map((u:any)=>u.module+': '+u.name).join('\n')}">Dipakai (${f.usageCount})</div>`
+        : `<div class="absolute top-2 left-2 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded-md">Tidak dipakai</div>`;
+
+      item.innerHTML = `
+        <div class="relative aspect-square bg-gray-50 flex items-center justify-center p-2">
+          ${f.mimeType.startsWith('image') ? `<img src="${f.url}" class="max-w-full max-h-full object-contain" />` : `<div class="text-gray-400 font-mono text-xs text-center break-all">${f.originalName}</div>`}
+          ${usageHtml}
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+             <a href="${f.url}" target="_blank" class="w-8 h-8 bg-white text-gray-700 rounded-full flex items-center justify-center hover:bg-gray-100" title="Buka di tab baru">
+               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+             </a>
+             ${f.usageCount === 0 ? `
+             <button type="button" data-id="${f.id}" class="delete-btn w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600" title="Hapus">
+               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+             </button>
+             ` : ''}
+          </div>
+        </div>
+        <div class="p-2.5 flex flex-col justify-center border-t border-gray-100 flex-1">
+          <p class="text-xs font-medium text-gray-900 truncate" title="${f.originalName}">${f.originalName}</p>
+          <div class="flex items-center justify-between mt-1">
+            <p class="text-[10px] text-gray-500">${formatSize(f.size)}</p>
+            <p class="text-[10px] text-gray-400">${new Date(f.createdAt).toLocaleDateString('id-ID')}</p>
+          </div>
+        </div>
+      `;
+      galleryGrid.appendChild(item);
+    });
+
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = (e.currentTarget as HTMLElement).dataset.id!;
+        fileToDelete = id;
+        deleteModal.classList.remove('hidden');
+      });
+    });
+  }
+
+  cancelDelete.addEventListener('click', () => {
+    deleteModal.classList.add('hidden');
+    fileToDelete = null;
+  });
+
+  confirmDeleteBtn.addEventListener('click', async () => {
+    if (!fileToDelete) return;
+    
+    const prevText = confirmDeleteBtn.textContent;
+    confirmDeleteBtn.textContent = 'Menghapus...';
+    (confirmDeleteBtn as HTMLButtonElement).disabled = true;
+
+    try {
+      const res = await fetch(`/api/admin/gallery/${fileToDelete}`, { method: 'DELETE' });
+      if (res.ok) {
+        files = files.filter(f => f.id !== fileToDelete);
+        renderGallery();
+      } else {
+        alert('Gagal menghapus file');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan');
+    } finally {
+      deleteModal.classList.add('hidden');
+      fileToDelete = null;
+      confirmDeleteBtn.textContent = prevText;
+      (confirmDeleteBtn as HTMLButtonElement).disabled = false;
+    }
+  });
+
+  uploadInput.addEventListener('change', async () => {
+    if (!uploadInput.files || uploadInput.files.length === 0) return;
+    const items = Array.from(uploadInput.files);
+    
+    // Add loading indicator to grid visually
+    loading.classList.remove('hidden');
+
+    for (const file of items) {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        await fetch('/api/upload', { method: 'POST', body: fd });
+      } catch (e) {
+        console.error('Failed to upload', file.name);
+      }
+    }
+
+    uploadInput.value = '';
+    await loadGallery();
+  });
+
+  // Initial load
+  loadGallery();
+</script>

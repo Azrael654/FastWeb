@@ -21,12 +21,13 @@ const navItems = [
   { href: '/admin/popups', label: 'Pop-up', icon: 'bell', key: 'popups' },
   { href: '/admin/notifications', label: 'Notifikasi', icon: 'bell', key: 'notifications' },
   { href: '/admin/logs', label: 'Log Aktivitas', icon: 'activity', key: 'logs' },
+  { href: '/admin/gallery', label: 'Galeri Media', icon: 'image', key: 'gallery' },
   { href: '/admin/config', label: 'Konfigurasi', icon: 'settings', key: 'config' },
 ];
 
 const visibleNavItems = navItems.filter(item => {
   if (user.isSystem) return true;
-  if (item.key === 'overview' || item.key === 'statistics' || item.key === 'notifications') return true;
+  if (['overview', 'statistics', 'notifications'].includes(item.key)) return true;
   const modKey = item.key === 'categories' ? 'products' : item.key === 'messages' ? 'crm' : item.key;
   return user.permissions?.[modKey]?.view === true;
 });
@@ -47,6 +48,7 @@ const icons: Record<string, string> = {
   user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 3a4 4 0 100 8 4 4 0 000-8z',
   settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z',
   activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  image: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
 };
 ---
 

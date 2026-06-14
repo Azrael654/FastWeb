@@ -2,9 +2,10 @@
 import '../styles/global.css';
 import AdminSidebar from '../components/admin/AdminSidebar.astro';
 import AdminHeader from '../components/admin/AdminHeader.astro';
+import MediaPicker from '../components/admin/MediaPicker.astro';
 import { getSessionUser, requireAdmin } from '../lib/auth';
 
-const user = Astro.locals.user || requireAdmin(Astro.cookies);
+const user = (Astro.locals as any).user || requireAdmin(Astro.cookies);
 
 interface Props {
   title?: string;
@@ -44,6 +45,8 @@ const { title = 'Admin', currentPage = '' } = Astro.props;
       </div>
     </div>
     
+    <MediaPicker />
+
     <script>
       const sidebar = document.getElementById('admin-sidebar');
       const backdrop = document.getElementById('sidebar-backdrop');

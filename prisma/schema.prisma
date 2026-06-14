@@ -413,3 +413,15 @@ model StoreConfig {
 
   @@map("store_config")
 }
+
+model GalleryFile {
+  id           String   @id @default(cuid())
+  filename     String   @unique
+  originalName String
+  url          String
+  size         Int      @default(0)
+  mimeType     String   @default("application/octet-stream")
+  createdAt    DateTime @default(now())
+
+  @@map("gallery_files")
+}

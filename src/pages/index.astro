@@ -93,7 +93,7 @@ const categories = await prisma.category.findMany({
                       <img
                         src={cat.image}
                         alt={cat.name}
-                        class="w-8 h-8 object-contain"
+                        class="w-14 h-14 object-cover"
                       />
                     ) : (
                       <svg
