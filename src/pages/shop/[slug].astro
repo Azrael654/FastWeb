@@ -325,11 +325,6 @@ if (product.image && !images.includes(product.image))
                             >
                               {opt.name}
                             </div>
-                            {Number(opt.priceAdj) !== 0 && (
-                              <div class="text-[10px] sm:text-[11px] text-gray-500 mt-0.5 truncate">
-                                +Rp {Number(opt.priceAdj).toLocaleString("id")}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </label>
@@ -347,10 +342,7 @@ if (product.image && !images.includes(product.image))
                         data-price-adj={opt.priceAdj}
                         selected={opt.isDefault}
                       >
-                        {opt.name}{" "}
-                        {Number(opt.priceAdj) !== 0
-                          ? `(+Rp ${Number(opt.priceAdj).toLocaleString("id")})`
-                          : ""}
+                        {opt.name}
                       </option>
                     ))}
                   </select>
