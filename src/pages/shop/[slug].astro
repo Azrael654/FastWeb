@@ -1,6 +1,7 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
 import prisma from "../../lib/prisma";
+import { marked } from "marked";
 
 const { slug } = Astro.params;
 
@@ -147,9 +148,18 @@ if (product.image && !images.includes(product.image))
 
         {
           product.description && (
-            <p class="text-gray-600 leading-relaxed mb-6">
-              {product.description}
-            </p>
+            <div class="mb-6">
+              <div class="relative">
+                <div
+                  id="product-desc"
+                  class="prose prose-sm prose-gray max-w-none text-gray-600 leading-relaxed overflow-hidden transition-all duration-300"
+                  style="max-height: 120px;"
+                  set:html={marked.parse(product.description)}
+                />
+                <div id="desc-fade" class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+              </div>
+              <button id="desc-toggle-btn" class="text-blue-600 font-medium text-sm mt-2 hidden hover:underline">Lihat Selengkapnya</button>
+            </div>
           )
         }
 
@@ -228,20 +238,19 @@ if (product.image && !images.includes(product.image))
         {
           Object.entries(optionsByType).map(([type, opts]: any) => (
             <div class="mb-5">
-              <label class="label capitalize">{type}</label>
-              <div class="flex flex-wrap gap-2">
+              <label class="label capitalize mb-2 block">{type}</label>
+              <select class="option-select input-field" data-option-type={type}>
                 {opts.map((opt: any) => (
-                  <button
-                    data-option-type={type}
-                    data-option-id={opt.id}
+                  <option
+                    value={opt.id}
                     data-option-name={opt.name}
                     data-price-adj={opt.priceAdj}
-                    class={`option-btn px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all ${opt.isDefault ? "border-blue-600 bg-blue-50 text-blue-700 is-active" : "border-gray-200 text-gray-700 hover:border-blue-400"}`}
+                    selected={opt.isDefault}
                   >
                     {opt.name}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
           ))
         }
@@ -344,13 +353,16 @@ if (product.image && !images.includes(product.image))
     > = {};
 
     // Initialize default selected options
-    document.querySelectorAll(".option-btn.is-active").forEach((btn) => {
-      const el = btn as HTMLElement;
-      selectedOptions[el.dataset.optionType!] = {
-        id: el.dataset.optionId!,
-        name: el.dataset.optionName!,
-        priceAdj: parseFloat(el.dataset.priceAdj || "0"),
-      };
+    document.querySelectorAll(".option-select").forEach((select: Element) => {
+      const sel = select as HTMLSelectElement;
+      const selectedOpt = sel.options[sel.selectedIndex];
+      if (selectedOpt) {
+        selectedOptions[sel.dataset.optionType!] = {
+          id: selectedOpt.value,
+          name: selectedOpt.dataset.optionName!,
+          priceAdj: parseFloat(selectedOpt.dataset.priceAdj || "0"),
+        };
+      }
     });
 
     let startingSellingPrice =
@@ -402,31 +414,19 @@ if (product.image && !images.includes(product.image))
       return total;
     }
 
-    document.querySelectorAll(".option-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const type = (btn as HTMLElement).dataset.optionType!;
-        document
-          .querySelectorAll(`[data-option-type="${type}"]`)
-          .forEach((b) => {
-            b.classList.remove(
-              "border-blue-600",
-              "bg-blue-50",
-              "text-blue-700",
-              "is-active",
-            );
-          });
-        btn.classList.add(
-          "border-blue-600",
-          "bg-blue-50",
-          "text-blue-700",
-          "is-active",
-        );
-        selectedOptions[type] = {
-          id: (btn as HTMLElement).dataset.optionId!,
-          name: (btn as HTMLElement).dataset.optionName!,
-          priceAdj: parseFloat((btn as HTMLElement).dataset.priceAdj || "0"),
-        };
-        calcPrice();
+    document.querySelectorAll(".option-select").forEach((select: Element) => {
+      select.addEventListener("change", () => {
+        const sel = select as HTMLSelectElement;
+        const type = sel.dataset.optionType!;
+        const selectedOpt = sel.options[sel.selectedIndex];
+        if (selectedOpt) {
+          selectedOptions[type] = {
+            id: selectedOpt.value,
+            name: selectedOpt.dataset.optionName!,
+            priceAdj: parseFloat(selectedOpt.dataset.priceAdj || "0"),
+          };
+          calcPrice();
+        }
       });
     });
 
@@ -494,6 +494,32 @@ if (product.image && !images.includes(product.image))
         addToCartBtn.classList.remove("opacity-50", "cursor-not-allowed");
       }
     });
+
+    // Description Read More Toggle
+    const descEl = document.getElementById("product-desc");
+    const fadeEl = document.getElementById("desc-fade");
+    const toggleBtn = document.getElementById("desc-toggle-btn");
+
+    if (descEl && fadeEl && toggleBtn) {
+      if (descEl.scrollHeight > 120) {
+        toggleBtn.classList.remove("hidden");
+        
+        toggleBtn.addEventListener("click", () => {
+          const isExpanded = descEl.style.maxHeight !== "120px";
+          if (isExpanded) {
+            descEl.style.maxHeight = "120px";
+            fadeEl.classList.remove("hidden");
+            toggleBtn.textContent = "Lihat Selengkapnya";
+          } else {
+            descEl.style.maxHeight = descEl.scrollHeight + "px";
+            fadeEl.classList.add("hidden");
+            toggleBtn.textContent = "Sembunyikan";
+          }
+        });
+      } else {
+        fadeEl.classList.add("hidden");
+      }
+    }
 
     addToCartBtn?.addEventListener("click", async () => {
       const dimEl = document.getElementById("dimension") as HTMLInputElement;

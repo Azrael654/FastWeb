@@ -30,7 +30,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
 
         <div>
           <label class="label">Deskripsi</label>
-          <textarea name="description" class="input-field" rows="3" placeholder="Deskripsi produk..."></textarea>
+          <textarea name="description" id="prod-description" class="input-field" rows="3" placeholder="Deskripsi produk..."></textarea>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -123,10 +123,34 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   </div>
 </AdminLayout>
 
+<!-- EasyMDE for description -->
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+
+<style is:global>
+  #prod-description + .EasyMDEContainer .editor-toolbar { border-color: #e5e7eb !important; opacity: 1 !important; border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; }
+  #prod-description + .EasyMDEContainer .CodeMirror { border-color: #e5e7eb !important; border-bottom-left-radius: 0.5rem !important; border-bottom-right-radius: 0.5rem !important; font-size: 13px; min-height: 140px; }
+</style>
+
 <script>
   const nameInput = document.getElementById('prod-name') as HTMLInputElement;
   const slugInput = document.getElementById('prod-slug') as HTMLInputElement;
   const pricingType = document.getElementById('pricing-type') as HTMLSelectElement;
+
+  // Init EasyMDE for description
+  let descEditor: any;
+  window.addEventListener('load', () => {
+    if (typeof (window as any).EasyMDE !== 'undefined') {
+      descEditor = new (window as any).EasyMDE({
+        element: document.getElementById('prod-description'),
+        spellChecker: false,
+        placeholder: 'Deskripsi produk (mendukung **Markdown**)...',
+        minHeight: '120px',
+        maxHeight: '300px',
+        toolbar: ['bold', 'italic', 'heading', '|', 'unordered-list', 'ordered-list', '|', 'link', 'preview'],
+      });
+    }
+  });
 
   nameInput?.addEventListener('input', () => {
     slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -323,6 +347,8 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     try {
       const fd = new FormData(form);
       const data: any = Object.fromEntries(fd);
+      // Get description from EasyMDE
+      if (descEditor) data.description = descEditor.value();
       
       data.imagesArray = imagesArray;
       data.image = imagesArray.length > 0 ? imagesArray[0] : null;

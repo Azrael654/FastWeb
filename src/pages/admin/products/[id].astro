@@ -51,7 +51,7 @@ const existingOptionGroups = Object.entries(
 
         <div>
           <label class="label">Deskripsi</label>
-          <textarea name="description" class="input-field" rows="3" placeholder="Deskripsi produk...">{product.description || ''}</textarea>
+          <textarea name="description" id="prod-description" class="input-field" rows="3" placeholder="Deskripsi produk...">{product.description || ''}</textarea>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -144,6 +144,15 @@ const existingOptionGroups = Object.entries(
   </div>
 </AdminLayout>
 
+<!-- EasyMDE for description -->
+<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+
+<style is:global>
+  #prod-description + .EasyMDEContainer .editor-toolbar { border-color: #e5e7eb !important; opacity: 1 !important; border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; }
+  #prod-description + .EasyMDEContainer .CodeMirror { border-color: #e5e7eb !important; border-bottom-left-radius: 0.5rem !important; border-bottom-right-radius: 0.5rem !important; font-size: 13px; min-height: 140px; }
+</style>
+
 <!-- Pass existing options data to client script -->
 <div id="options-initial-data" data-groups={JSON.stringify(existingOptionGroups)} class="hidden"></div>
 <div id="images-initial-data" data-images={JSON.stringify(existingImages)} class="hidden"></div>
@@ -152,6 +161,21 @@ const existingOptionGroups = Object.entries(
   const nameInput = document.getElementById('prod-name') as HTMLInputElement;
   const slugInput = document.getElementById('prod-slug') as HTMLInputElement;
   const pricingType = document.getElementById('pricing-type') as HTMLSelectElement;
+
+  // Init EasyMDE for description (pre-populate with existing content)
+  let descEditor: any;
+  window.addEventListener('load', () => {
+    if (typeof (window as any).EasyMDE !== 'undefined') {
+      descEditor = new (window as any).EasyMDE({
+        element: document.getElementById('prod-description'),
+        spellChecker: false,
+        placeholder: 'Deskripsi produk (mendukung **Markdown**)...',
+        minHeight: '120px',
+        maxHeight: '300px',
+        toolbar: ['bold', 'italic', 'heading', '|', 'unordered-list', 'ordered-list', '|', 'link', 'preview'],
+      });
+    }
+  });
 
   nameInput?.addEventListener('input', () => {
     // Only auto-generate slug if user hasn't typed in it manually
@@ -328,6 +352,8 @@ const existingOptionGroups = Object.entries(
     try {
       const fd = new FormData(form);
       const data: any = Object.fromEntries(fd);
+      // Get description from EasyMDE
+      if (descEditor) data.description = descEditor.value();
       
       data.imagesArray = imagesArray;
       data.image = imagesArray.length > 0 ? imagesArray[0] : null;
