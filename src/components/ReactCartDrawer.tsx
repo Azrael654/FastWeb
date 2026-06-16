@@ -15,7 +15,7 @@ export default function CartDrawer() {
   }, []);
 
   const cartTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const cartCount = items.reduce((sum, item) => sum + item.qty, 0);
+  const cartCount = items.length;
 
   const drawerContent = (
     <div className="cart-drawer-portal">

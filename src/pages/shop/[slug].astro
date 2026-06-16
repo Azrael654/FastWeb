@@ -25,6 +25,14 @@ const optionsByType = product.productOptions.reduce((acc: any, opt) => {
 
 const optionsConfig = (product.optionsConfig as any) || {};
 
+// Sort wholesale prices by minQty descending for easier processing
+const wholesalePrices = Array.isArray(product.wholesalePrices) 
+  ? (product.wholesalePrices as any[]).sort((a, b) => b.minQty - a.minQty) 
+  : [];
+
+// Determine default selections
+const defaultSelections: Record<string, any> = {};
+
 const storeConfig = await prisma.storeConfig.findUnique({
   where: { id: "singleton" },
 });
@@ -51,6 +59,7 @@ if (product.image && !images.includes(product.image))
       pricingUnit: product.pricingUnit,
       image: product.image,
       slug: product.slug,
+      wholesalePrices: wholesalePrices,
     })}
     class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
   >
@@ -172,6 +181,23 @@ if (product.image && !images.includes(product.image))
             </div>
           )
         }
+
+        {wholesalePrices.length > 0 && (
+          <div class="mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Harga Grosir
+            </h4>
+            <div class="space-y-1.5">
+              {wholesalePrices.map((ws: any) => (
+                <div class="flex justify-between text-sm text-blue-800">
+                  <span>Pembelian &ge; {ws.minQty} {product.pricingType !== 'fixed' ? product.pricingUnit || 'unit' : 'pcs'}</span>
+                  <span class="font-medium">Rp {Number(ws.price).toLocaleString('id')} / {product.pricingType !== 'fixed' ? product.pricingUnit || 'unit' : 'pcs'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <!-- Quantity & Area (if applicable) -->
         <div class="grid grid-cols-2 gap-4 mb-6">
@@ -481,21 +507,17 @@ if (product.image && !images.includes(product.image))
 
     let startingSellingPrice =
       product.pricingType === "fixed"
-        ? product.price
-        : product.unitPrice || product.price;
+        ? Number(product.price)
+        : Number(product.unitPrice || product.price);
 
+    const wholesalePrices = product.wholesalePrices || [];
     let uploadedDesignUrl = "";
 
     function calcPrice() {
-      let adj = Object.values(selectedOptions).reduce(
-        (sum, opt) => sum + (opt.priceAdj || 0),
-        0,
-      );
-      let unit = startingSellingPrice + adj; // price per m² or per unit
-
       const widthEl = document.getElementById("width") as HTMLInputElement;
       const heightEl = document.getElementById("height") as HTMLInputElement;
       const dimEl = document.getElementById("dimension") as HTMLInputElement;
+      const qtyEl = document.getElementById("qty") as HTMLInputElement;
 
       let dim = 1;
       if (widthEl && heightEl) {
@@ -510,22 +532,35 @@ if (product.image && !images.includes(product.image))
         dim = parseFloat(dimEl.value || "1");
       }
 
-      const qtyEl = document.getElementById("qty") as HTMLInputElement;
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
+      
+      // Calculate total "units" to determine if wholesale applies
+      const totalUnits = product.pricingType === "fixed" ? qty : dim * qty;
+      
+      // Apply wholesale price if applicable
+      let basePrice = startingSellingPrice;
+      const applicableWs = wholesalePrices.find((ws: any) => totalUnits >= ws.minQty);
+      if (applicableWs) {
+        basePrice = applicableWs.price;
+      }
+
+      let adj = Object.values(selectedOptions).reduce(
+        (sum, opt) => sum + (opt.priceAdj || 0),
+        0,
+      );
+      let unit = basePrice + adj; // price per m² or per unit
 
       let total: number;
       if (product.pricingType === "fixed") {
         total = unit * qty;
       } else {
-        // For area-based: price = unitPrice × max(area, 1) × qty
-        // This ensures minimum price per piece = unitPrice
         total = unit * dim * qty;
       }
 
       const priceDisplay = document.getElementById("price-display");
       if (priceDisplay)
         priceDisplay.textContent = `Rp ${total.toLocaleString("id")}`;
-      return total;
+      return unit;
     }
 
     document.querySelectorAll(".option-select").forEach((select: Element) => {

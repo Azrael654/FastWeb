@@ -54,7 +54,8 @@ export async function updateQty(cartItemId: string, newQty: number) {
     body: JSON.stringify({ qty: newQty }),
   });
   if (res.ok) {
-    cartItems.set(cartItems.get().map(i => i.id === cartItemId ? { ...i, qty: newQty } : i));
+    const data = await res.json();
+    cartItems.set(cartItems.get().map(i => i.id === cartItemId ? { ...i, qty: newQty, price: data.price || i.price } : i));
   }
 }
 

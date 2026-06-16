@@ -9,12 +9,40 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
   const { qty } = await request.json();
   if (!qty || qty < 1) return new Response(JSON.stringify({ error: 'Invalid qty' }), { status: 400 });
 
-  const item = await prisma.cartItem.updateMany({
+  const cartItem = await prisma.cartItem.findFirst({
     where: { id: params.id, userId: user.id },
-    data: { qty },
   });
 
-  return new Response(JSON.stringify({ success: true }), { status: 200 });
+  if (!cartItem) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+
+  const product = await prisma.product.findUnique({
+    where: { id: cartItem.productId }
+  });
+
+  let updatedPrice = Number(cartItem.price);
+
+  if (product) {
+    let startingPrice = product.pricingType === 'fixed' ? Number(product.price) : Number(product.unitPrice || product.price);
+    const wholesalePrices = Array.isArray(product.wholesalePrices) 
+      ? (product.wholesalePrices as any[]).sort((a,b) => b.minQty - a.minQty) 
+      : [];
+    
+    const totalUnits = product.pricingType === 'fixed' ? qty : Number(cartItem.dimension) * qty;
+    let basePrice = startingPrice;
+    
+    const applicableWs = wholesalePrices.find(ws => totalUnits >= ws.minQty);
+    if (applicableWs) basePrice = Number(applicableWs.price);
+
+    let adj = Object.values(cartItem.options as any).reduce((sum: number, opt: any) => sum + (Number(opt.priceAdj) || 0), 0);
+    updatedPrice = basePrice + adj;
+  }
+
+  await prisma.cartItem.update({
+    where: { id: cartItem.id },
+    data: { qty, price: updatedPrice },
+  });
+
+  return new Response(JSON.stringify({ success: true, price: updatedPrice }), { status: 200 });
 };
 
 export const DELETE: APIRoute = async ({ params, cookies }) => {
