@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin } from '../../../lib/auth';
+import { requireAdmin, checkPermission } from '../../../lib/auth';
 import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async () => {
@@ -11,6 +11,10 @@ export const GET: APIRoute = async () => {
 export const POST: APIRoute = async ({ request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  
+  const canCreate = await checkPermission(cookies, 'products', 'create');
+  if (!canCreate) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
   const body = await request.json();
 
   const cat = await prisma.category.create({

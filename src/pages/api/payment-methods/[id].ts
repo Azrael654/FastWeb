@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin } from '../../../lib/auth';
+import { requireAdmin, checkPermission } from '../../../lib/auth';
 import { logActivity } from '../../../lib/logger';
 
 export const PUT: APIRoute = async ({ params, request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const canPUT = await checkPermission(cookies, 'settings', 'update');
+  if (!canPUT) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
   
   try {
     const { id } = params;
@@ -40,6 +43,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
 export const DELETE: APIRoute = async ({ params, request, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const canDELETE = await checkPermission(cookies, 'settings', 'delete');
+  if (!canDELETE) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
   
   try {
     const { id } = params;

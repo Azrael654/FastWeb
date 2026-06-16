@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin, getSessionUser } from '../../../lib/auth';
+import { requireAdmin, getSessionUser, checkPermission } from '../../../lib/auth';
 import { logActivity } from '../../../lib/logger';
 
 export const GET: APIRoute = async ({ url, cookies }) => {

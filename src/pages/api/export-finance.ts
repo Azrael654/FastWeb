@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../lib/prisma';
-import { requireAdmin } from '../../lib/auth';
+import { requireAdmin, checkPermission } from '../../lib/auth';
 
 /** Format number as Indonesian accounting style: 1.234.567 */
 function fmt(n: number): string {

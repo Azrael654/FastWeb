@@ -1,11 +1,15 @@
 import type { APIRoute } from 'astro';
 import prisma from '../../../lib/prisma';
-import { requireAdmin } from '../../../lib/auth';
+import { requireAdmin, checkPermission } from '../../../lib/auth';
 import { logActivity } from '../../../lib/logger';
 
 export const PUT: APIRoute = async ({ request, params, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  
+  const canUpdate = await checkPermission(cookies, 'products', 'update');
+  if (!canUpdate) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
   const body = await request.json();
   const cat = await prisma.category.update({ where: { id: params.id }, data: body });
   
@@ -24,6 +28,9 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   const admin = requireAdmin(cookies);
   if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   
+  const canDelete = await checkPermission(cookies, 'products', 'delete');
+  if (!canDelete) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
   try {
     const cat = await prisma.category.findUnique({ where: { id: params.id } });
     await prisma.category.delete({ where: { id: params.id } });

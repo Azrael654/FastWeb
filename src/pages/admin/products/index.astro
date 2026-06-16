@@ -1,6 +1,11 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
+import { checkPermission } from '../../../lib/auth';
+
+const canCreate = await checkPermission(Astro.cookies, 'products', 'create');
+const canUpdate = await checkPermission(Astro.cookies, 'products', 'update');
+const canDelete = await checkPermission(Astro.cookies, 'products', 'delete');
 
 const search = Astro.url.searchParams.get('search') || '';
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
@@ -21,7 +26,7 @@ const totalPages = Math.ceil(total / limit);
       <button type="submit" class="btn-primary text-sm py-2">Cari</button>
       {search && <a href="/admin/products" class="btn-ghost text-sm py-2">Reset</a>}
     </form>
-    <a href="/admin/products/new" class="btn-primary text-sm">+ Tambah Produk</a>
+    {canCreate && <a href="/admin/products/new" class="btn-primary text-sm">+ Tambah Produk</a>}
   </div>
 
   <div class="card">
@@ -51,8 +56,8 @@ const totalPages = Math.ceil(total / limit);
               <td>{p.isFeatured ? <span class="badge-green">Ya</span> : <span class="badge-gray">Tidak</span>}</td>
               <td>
                 <div class="flex gap-2">
-                  <a href={`/admin/products/${p.id}`} class="text-blue-600 hover:underline text-xs font-medium">Edit</a>
-                  <button data-id={p.id} class="delete-product text-red-500 hover:underline text-xs font-medium">Hapus</button>
+                  {canUpdate && <a href={`/admin/products/${p.id}`} class="text-blue-600 hover:underline text-xs font-medium">Edit</a>}
+                  {canDelete && <button data-id={p.id} class="delete-product text-red-500 hover:underline text-xs font-medium">Hapus</button>}
                 </div>
               </td>
             </tr>

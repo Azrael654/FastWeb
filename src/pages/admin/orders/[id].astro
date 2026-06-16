@@ -1,6 +1,9 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
+import { checkPermission } from '../../../lib/auth';
+
+const canUpdate = await checkPermission(Astro.cookies, 'orders', 'update');
 
 const { id } = Astro.params;
 const order = await prisma.order.findUnique({ where: { id } });
@@ -82,21 +85,23 @@ const statusColor: Record<string, string> = {
 
     <!-- Right Column -->
     <div class="space-y-5">
-      <!-- Shipping Fee Update -->
-      {order.shippingMethod === 'Dikirim Kurir' && (
-        <div class="card p-5 border-blue-200 bg-blue-50/30">
-          <h2 class="font-bold text-gray-900 mb-4">Biaya Pengiriman (Ongkir)</h2>
-          <div class="flex items-end gap-2">
-            <div class="flex-1">
-              <label class="label text-xs">Total Ongkir (Rp)</label>
-              <input type="number" id="shipping-fee-input" value={Number(order.shippingFee) || ''} placeholder="0" class="input-field text-sm py-1.5 bg-white" />
+      {canUpdate && (
+        <>
+          <!-- Shipping Fee Update -->
+          {order.shippingMethod === 'Dikirim Kurir' && (
+            <div class="card p-5 border-blue-200 bg-blue-50/30">
+              <h2 class="font-bold text-gray-900 mb-4">Biaya Pengiriman (Ongkir)</h2>
+              <div class="flex items-end gap-2">
+                <div class="flex-1">
+                  <label class="label text-xs">Total Ongkir (Rp)</label>
+                  <input type="number" id="shipping-fee-input" value={Number(order.shippingFee) || ''} placeholder="0" class="input-field text-sm py-1.5 bg-white" />
+                </div>
+                <button id="update-shipping-btn" class="btn-primary text-sm shrink-0 px-4 py-1.5 h-[38px]">Simpan</button>
+              </div>
             </div>
-            <button id="update-shipping-btn" class="btn-primary text-sm shrink-0 px-4 py-1.5 h-[38px]">Simpan</button>
-          </div>
-        </div>
-      )}
+          )}
 
-      <!-- Status Update -->
+          <!-- Status Update -->
       <div class="card p-5">
         <h2 class="font-bold text-gray-900 mb-4">Update Status</h2>
         <div class="mb-3">
@@ -124,10 +129,12 @@ const statusColor: Record<string, string> = {
 
         <div id="status-msg" class="hidden mb-3 text-sm p-2 rounded-lg"></div>
         <select id="status-select" class="input-field mb-3">
-          {statusOptions.map(s => <option value={s} selected={order.status === s}>{s}</option>)}
-        </select>
-        <button id="update-status-btn" class="btn-primary w-full text-sm">Update Status</button>
-      </div>
+            {statusOptions.map(s => <option value={s} selected={order.status === s}>{s}</option>)}
+          </select>
+          <button id="update-status-btn" class="btn-primary w-full text-sm">Update Status</button>
+        </div>
+        </>
+      )}
 
       <!-- Customer Info -->
       <div class="card p-5">

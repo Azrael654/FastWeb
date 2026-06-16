@@ -1,6 +1,10 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
+import { checkPermission } from '../../../lib/auth';
+
+const canUpdate = await checkPermission(Astro.cookies, 'products', 'update');
+if (!canUpdate) return Astro.redirect('/admin/products');
 
 const { id } = Astro.params;
 const product = await prisma.product.findUnique({
