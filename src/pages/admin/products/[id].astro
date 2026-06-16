@@ -151,6 +151,8 @@ const existingOptionGroups = Object.entries(
 <!-- EasyMDE for description -->
 <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
 <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+<!-- SortableJS for drag & drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <style is:global>
   #prod-description + .EasyMDEContainer .editor-toolbar { border-color: #e5e7eb !important; opacity: 1 !important; border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; }
@@ -273,73 +275,120 @@ const existingOptionGroups = Object.entries(
   // --- Options Builder (pre-populated from existing data) ---
   let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isDefault: boolean; image?: string }[] }[] =
     JSON.parse(document.getElementById('options-initial-data')?.dataset.groups || '[]');
+  let optionSortables: any[] = [];
+  let containerSortable: any = null;
 
   function renderGroups() {
     const container = document.getElementById('options-container')!;
     const msg = document.getElementById('no-options-msg')!;
     msg.classList.toggle('hidden', optionGroups.length > 0);
+    
+    // Destroy previous sortable instances
+    optionSortables.forEach(s => s.destroy());
+    optionSortables = [];
+    
     container.innerHTML = '';
     optionGroups.forEach((group, gi) => {
       const groupEl = document.createElement('div');
       groupEl.className = 'border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50';
       groupEl.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="label text-xs">Nama Grup (Tipe)</label>
-            <input type="text" placeholder="Contoh: Material, Finishing" value="${group.type}" data-gi="${gi}" data-field="type"
-              class="group-field-input input-field text-sm py-2" />
+        <div class="flex items-start gap-2">
+          <div class="group-drag-handle cursor-grab text-gray-400 hover:text-gray-700 mt-8" title="Geser Grup">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
           </div>
-          <div>
-            <label class="label text-xs">Tipe Pemilihan</label>
-            <select class="group-field-input input-field text-sm py-2" data-gi="${gi}" data-field="selectorType">
-              <option value="dropdown" ${group.selectorType !== 'image_card' ? 'selected' : ''}>Dropdown (Tanpa Gambar)</option>
-              <option value="image_card" ${group.selectorType === 'image_card' ? 'selected' : ''}>Kartu Gambar</option>
-            </select>
-          </div>
-          <div>
-            <label class="label text-xs">Tooltip Grup (?)</label>
-            <input type="text" placeholder="Penjelasan (opsional)" value="${group.tooltip || ''}" data-gi="${gi}" data-field="tooltip"
-              class="group-field-input input-field text-sm py-2" />
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <button type="button" data-gi="${gi}" class="remove-group-btn text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-medium">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            Hapus Grup
-          </button>
-        </div>
-        <div class="space-y-2" id="opts-${gi}">
-          ${group.options.map((opt, oi) => `
-            <div class="bg-white p-3 border border-gray-200 rounded-lg space-y-2" data-oi="${oi}">
-              <div class="flex items-center gap-2">
-                <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
-                  class="opt-field input-field text-sm py-1.5 flex-1" />
-                <div class="relative">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
-                  <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
-                    class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
-                </div>
-                <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-400 hover:text-red-500 transition-colors">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+          <div class="flex-1 space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="label text-xs">Nama Grup (Tipe)</label>
+                <input type="text" placeholder="Contoh: Material, Finishing" value="${group.type}" data-gi="${gi}" data-field="type"
+                  class="group-field-input input-field text-sm py-2" />
               </div>
-              ${group.selectorType === 'image_card' ? `
-              <div class="flex items-center gap-2">
-                <button type="button" class="btn-secondary text-xs px-2 py-1 whitespace-nowrap opt-img-btn" data-gi="${gi}" data-oi="${oi}">
-                  ${opt.image ? 'Ganti Gambar' : 'Pilih Gambar'}
-                </button>
-                <input type="hidden" value="${opt.image || ''}" data-gi="${gi}" data-oi="${oi}" data-field="image" class="opt-field" />
-                ${opt.image ? `<img src="${opt.image}" class="w-6 h-6 rounded object-cover border" />` : ''}
-              </div>` : ''}
-            </div>`).join('')}
+              <div>
+                <label class="label text-xs">Tipe Pemilihan</label>
+                <select class="group-field-input input-field text-sm py-2" data-gi="${gi}" data-field="selectorType">
+                  <option value="dropdown" ${group.selectorType !== 'image_card' ? 'selected' : ''}>Dropdown (Tanpa Gambar)</option>
+                  <option value="image_card" ${group.selectorType === 'image_card' ? 'selected' : ''}>Kartu Gambar</option>
+                </select>
+              </div>
+              <div>
+                <label class="label text-xs">Tooltip Grup (?)</label>
+                <input type="text" placeholder="Penjelasan (opsional)" value="${group.tooltip || ''}" data-gi="${gi}" data-field="tooltip"
+                  class="group-field-input input-field text-sm py-2" />
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button type="button" data-gi="${gi}" class="remove-group-btn text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Hapus Grup
+              </button>
+            </div>
+            <div class="space-y-2" id="opts-${gi}">
+              ${group.options.map((opt, oi) => `
+                <div class="bg-white p-3 border border-gray-200 rounded-lg space-y-2" data-oi="${oi}">
+                  <div class="flex items-center gap-2">
+                    <div class="opt-drag-handle cursor-grab text-gray-400 hover:text-gray-700 p-1" title="Geser Pilihan">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+                    </div>
+                    <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
+                      class="opt-field input-field text-sm py-1.5 flex-1" />
+                    <div class="relative">
+                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
+                      <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
+                        class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
+                    </div>
+                    <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-400 hover:text-red-500 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                  ${group.selectorType === 'image_card' ? `
+                  <div class="flex items-center gap-2 pl-7">
+                    <button type="button" class="btn-secondary text-xs px-2 py-1 whitespace-nowrap opt-img-btn" data-gi="${gi}" data-oi="${oi}">
+                      ${opt.image ? 'Ganti Gambar' : 'Pilih Gambar'}
+                    </button>
+                    <input type="hidden" value="${opt.image || ''}" data-gi="${gi}" data-oi="${oi}" data-field="image" class="opt-field" />
+                    ${opt.image ? `<img src="${opt.image}" class="w-6 h-6 rounded object-cover border" />` : ''}
+                  </div>` : ''}
+                </div>`).join('')}
+            </div>
+            <button type="button" data-gi="${gi}" class="add-opt-btn text-xs text-blue-600 hover:underline font-medium flex items-center gap-1 mt-2">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Tambah Pilihan
+            </button>
+          </div>
         </div>
-        <button type="button" data-gi="${gi}" class="add-opt-btn text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Tambah Pilihan
-        </button>
       `;
       container.appendChild(groupEl);
+
+      // Init sortable for options
+      if (typeof (window as any).Sortable !== 'undefined') {
+        const optSortable = new (window as any).Sortable(document.getElementById(`opts-${gi}`), {
+          handle: '.opt-drag-handle',
+          animation: 150,
+          onEnd: (evt: any) => {
+            if (evt.oldIndex === evt.newIndex) return;
+            const moved = optionGroups[gi].options.splice(evt.oldIndex, 1)[0];
+            optionGroups[gi].options.splice(evt.newIndex, 0, moved);
+            renderGroups();
+          }
+        });
+        optionSortables.push(optSortable);
+      }
     });
+
+    // Init sortable for groups container
+    if (typeof (window as any).Sortable !== 'undefined' && !containerSortable) {
+      containerSortable = new (window as any).Sortable(container, {
+        handle: '.group-drag-handle',
+        animation: 150,
+        onEnd: (evt: any) => {
+          if (evt.oldIndex === evt.newIndex) return;
+          const moved = optionGroups.splice(evt.oldIndex, 1)[0];
+          optionGroups.splice(evt.newIndex, 0, moved);
+          renderGroups();
+        }
+      });
+    }
+
     container.querySelectorAll('.group-field-input').forEach(el => {
       el.addEventListener('input', (e) => {
         const input = e.target as HTMLInputElement | HTMLSelectElement;
