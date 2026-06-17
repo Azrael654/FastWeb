@@ -13,6 +13,10 @@ export default defineConfig({
     mode: 'standalone',
   }),
 
+  security: {
+    checkOrigin: false,
+  },
+
   integrations: [
     react(),
     sitemap({
