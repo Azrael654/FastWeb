@@ -8,9 +8,21 @@ const canUpdate = await checkPermission(Astro.cookies, 'products', 'update');
 const canDelete = await checkPermission(Astro.cookies, 'products', 'delete');
 
 const search = Astro.url.searchParams.get('search') || '';
+const category = Astro.url.searchParams.get('category') || '';
+const status = Astro.url.searchParams.get('status') || '';
+const pricingType = Astro.url.searchParams.get('pricingType') || '';
+const featured = Astro.url.searchParams.get('featured') || '';
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const limit = 15;
-const where: any = search ? { name: { contains: search, mode: 'insensitive' } } : {};
+
+const where: any = {};
+if (search) where.name = { contains: search, mode: 'insensitive' };
+if (category) where.categoryId = category;
+if (status === 'published') where.isPublished = true;
+if (status === 'draft') where.isPublished = false;
+if (pricingType) where.pricingType = pricingType;
+if (featured === 'yes') where.isFeatured = true;
+if (featured === 'no') where.isFeatured = false;
 
 const [products, total, categories] = await Promise.all([
   prisma.product.findMany({ where, include: { category: true }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
@@ -21,10 +33,31 @@ const totalPages = Math.ceil(total / limit);
 ---
 <AdminLayout title="Produk" currentPage="products">
   <div class="flex items-center justify-between mb-5">
-    <form method="GET" class="flex gap-2">
+    <form method="GET" class="flex flex-wrap gap-2 items-center">
       <input name="search" value={search} type="text" class="input-field text-sm py-2 w-64" placeholder="Cari produk..." />
-      <button type="submit" class="btn-primary text-sm py-2">Cari</button>
-      {search && <a href="/admin/products" class="btn-ghost text-sm py-2">Reset</a>}
+      <select name="category" class="input-field text-sm py-2 w-auto min-w-[120px]">
+        <option value="">Semua Kategori</option>
+        {categories.map(cat => <option value={cat.id} selected={cat.id === category}>{cat.name}</option>)}
+      </select>
+      <select name="status" class="input-field text-sm py-2 w-auto">
+        <option value="">Semua Status</option>
+        <option value="published" selected={status === 'published'}>Published</option>
+        <option value="draft" selected={status === 'draft'}>Draft</option>
+      </select>
+      <select name="pricingType" class="input-field text-sm py-2 w-auto">
+        <option value="">Semua Tipe Harga</option>
+        <option value="fixed" selected={pricingType === 'fixed'}>Fixed</option>
+        <option value="area_m2" selected={pricingType === 'area_m2'}>Area M2</option>
+        <option value="area_cm2" selected={pricingType === 'area_cm2'}>Area CM2</option>
+        <option value="quantity" selected={pricingType === 'quantity'}>Kuantitas</option>
+      </select>
+      <select name="featured" class="input-field text-sm py-2 w-auto">
+        <option value="">Semua Featured</option>
+        <option value="yes" selected={featured === 'yes'}>Ya</option>
+        <option value="no" selected={featured === 'no'}>Tidak</option>
+      </select>
+      <button type="submit" class="btn-primary text-sm py-2">Filter</button>
+      {(search || category || status || pricingType || featured) && <a href="/admin/products" class="btn-ghost text-sm py-2">Reset</a>}
     </form>
     {canCreate && <a href="/admin/products/new" class="btn-primary text-sm">+ Tambah Produk</a>}
   </div>
@@ -68,9 +101,19 @@ const totalPages = Math.ceil(total / limit);
     </div>
     {totalPages > 1 && (
       <div class="flex justify-center gap-2 p-4 border-t border-gray-50">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-          <a href={`/admin/products?page=${p}${search ? `&search=${search}` : ''}`} class={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${p === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{p}</a>
-        ))}
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
+          const params = new URLSearchParams();
+          if (search) params.set('search', search);
+          if (category) params.set('category', category);
+          if (status) params.set('status', status);
+          if (pricingType) params.set('pricingType', pricingType);
+          if (featured) params.set('featured', featured);
+          params.set('page', String(p));
+          
+          return (
+            <a href={`/admin/products?${params}`} class={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${p === page ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{p}</a>
+          );
+        })}
       </div>
     )}
   </div>
