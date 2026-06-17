@@ -13,13 +13,18 @@ export default defineConfig({
     mode: 'standalone',
   }),
 
-  security: {
-    checkOrigin: false,
-  },
-
   integrations: [
     react(),
-    sitemap(),
+    sitemap({
+      filter: (page) => {
+        return !(
+          page.includes('/admin') ||
+          page.includes('/dashboard') ||
+          page.includes('/login') ||
+          page.includes('/checkout')
+        );
+      },
+    }),
   ],
 
   vite: {
