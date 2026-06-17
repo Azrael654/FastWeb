@@ -3,7 +3,7 @@ import MainLayout from "../layouts/MainLayout.astro";
 import prisma from "../lib/prisma";
 
 const featuredProducts = await prisma.product.findMany({
-  where: { isFeatured: true },
+  where: { isFeatured: true, isPublished: true },
   include: { category: true },
   take: 8,
 });

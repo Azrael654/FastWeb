@@ -10,10 +10,10 @@ const product = await prisma.product.findUnique({
   include: { category: true, productOptions: true },
 });
 
-if (!product) return Astro.redirect("/shop");
+if (!product || !product.isPublished) return Astro.redirect("/shop");
 
 const relatedProducts = await prisma.product.findMany({
-  where: { categoryId: product.categoryId, slug: { not: slug } },
+  where: { categoryId: product.categoryId, slug: { not: slug }, isPublished: true },
   take: 4,
 });
 

@@ -35,7 +35,7 @@ const totalPages = Math.ceil(total / limit);
     </div>
     <div class="table-wrapper">
       <table class="data-table">
-        <thead><tr><th>Produk</th><th>Kategori</th><th>Harga</th><th>Tipe Harga</th><th>Featured</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Produk</th><th>Kategori</th><th>Harga</th><th>Status</th><th>Tipe Harga</th><th>Featured</th><th>Aksi</th></tr></thead>
         <tbody>
           {products.map(p => (
             <tr>
@@ -52,6 +52,7 @@ const totalPages = Math.ceil(total / limit);
               </td>
               <td class="text-sm">{p.category?.name || '-'}</td>
               <td class="text-sm font-semibold">Rp {Number(p.price).toLocaleString('id')}</td>
+              <td>{p.isPublished ? <span class="badge-green text-xs">Published</span> : <span class="badge-yellow text-xs">Draft</span>}</td>
               <td><span class="badge-blue text-xs">{p.pricingType}</span></td>
               <td>{p.isFeatured ? <span class="badge-green">Ya</span> : <span class="badge-gray">Tidak</span>}</td>
               <td>

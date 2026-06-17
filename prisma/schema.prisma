@@ -115,6 +115,7 @@ model Product {
   specifications Json?  @default("{}")
   optionsConfig Json?   @default("{}")
   wholesalePrices Json? @default("[]")
+  isPublished  Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

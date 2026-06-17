@@ -102,6 +102,11 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
           <label for="is-featured" class="text-sm font-medium text-gray-700">Tampilkan sebagai produk unggulan di beranda</label>
         </div>
 
+        <div class="flex items-center gap-3 mt-2">
+          <input type="checkbox" name="isPublished" id="is-published" value="true" checked class="w-4 h-4 text-blue-600 rounded" />
+          <label for="is-published" class="text-sm font-medium text-gray-700">Publikasikan produk ini (akan terlihat di etalase)</label>
+        </div>
+
         <!-- Wholesale Prices Builder -->
         <div class="border-t border-gray-100 pt-5">
           <div class="flex items-center justify-between mb-3">
@@ -517,8 +522,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       data.image = imagesArray.length > 0 ? imagesArray[0] : null;
 
       data.isFeatured = fd.get('isFeatured') === 'true';
-
-      data.isFeatured = fd.get('isFeatured') === 'true';
+      data.isPublished = fd.get('isPublished') === 'true';
       data.price = parseFloat(data.price) || 0;
       data.basePrice = parseFloat(data.basePrice) || data.price;
       if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');

@@ -7,7 +7,7 @@ const categorySlug = Astro.url.searchParams.get("category") || "";
 const page = parseInt(Astro.url.searchParams.get("page") || "1");
 const limit = 12;
 
-const where: any = {};
+const where: any = { isPublished: true };
 if (search) where.name = { contains: search, mode: "insensitive" };
 if (categorySlug) where.category = { slug: categorySlug };
 
