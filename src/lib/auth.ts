@@ -80,5 +80,13 @@ export async function checkPermission(cookies: AstroCookies, module: string, act
   if (role.isSystem) return true;
 
   const perms = (role.permissions || {}) as Record<string, Record<string, boolean>>;
-  return perms?.[module]?.[action] === true;
+
+  // Normalize CRUD aliases to match the UI's stored action names
+  const ACTION_ALIASES: Record<string, string> = {
+    create: 'add',
+    update: 'edit',
+  };
+  const normalizedAction = ACTION_ALIASES[action] ?? action;
+
+  return perms?.[module]?.[normalizedAction] === true;
 }

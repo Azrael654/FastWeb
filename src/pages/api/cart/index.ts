@@ -37,6 +37,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       dimension: dimension ?? 1,
       price,
       designUrl: designUrl ?? null,
+      // @ts-ignore – notes field added via prisma db push, types regenerated
       notes: notes ?? null,
     },
   });
@@ -60,6 +61,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         dimension: dimension || 1,
         options: options || {},
         designUrl,
+        // @ts-ignore – notes field added via prisma db push, types regenerated
         notes: notes || null,
       },
     });
