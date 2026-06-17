@@ -1,9 +1,12 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import node from '@astrojs/node';
+import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  site: 'https://fast-print.id',
+
   output: 'server',
 
   adapter: node({
@@ -16,6 +19,7 @@ export default defineConfig({
 
   integrations: [
     react(),
+    sitemap(),
   ],
 
   vite: {
