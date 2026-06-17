@@ -26,9 +26,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) return new Response(JSON.stringify({ error: 'Login diperlukan untuk menambahkan ke keranjang.' }), { status: 401 });
 
   const body = await request.json();
-  const { productId, name, slug, image, price, qty, dimension, options, designUrl } = body;
+  const { productId, name, slug, image, price, qty, dimension, options, designUrl, notes } = body;
 
-  // Check if exact same product+options+dimension+price+designUrl already in cart
+  // Check if exact same product+options+dimension+price+designUrl+notes already in cart
   const existing = await prisma.cartItem.findFirst({
     where: {
       userId: user.id,
@@ -37,6 +37,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       dimension: dimension ?? 1,
       price,
       designUrl: designUrl ?? null,
+      notes: notes ?? null,
     },
   });
 
@@ -59,6 +60,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         dimension: dimension || 1,
         options: options || {},
         designUrl,
+        notes: notes || null,
       },
     });
   }

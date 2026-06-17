@@ -394,6 +394,18 @@ if (product.image && !images.includes(product.image))
           </p>
         </div>
 
+        <!-- Notes -->
+        <div class="mb-6">
+          <label class="label font-bold text-gray-900" for="order-notes">Catatan (Opsional)</label>
+          <p class="text-xs text-gray-500 mb-2">Tambahkan instruksi khusus untuk pesanan ini</p>
+          <textarea
+            id="order-notes"
+            rows="3"
+            placeholder="Contoh: Tolong cetak lebih tajam pada area logo, warna dominan biru..."
+            class="input-field text-sm resize-none"
+          ></textarea>
+        </div>
+
         <div class="flex gap-3">
           <button
             id="add-to-cart-btn"
@@ -691,8 +703,10 @@ if (product.image && !images.includes(product.image))
     addToCartBtn?.addEventListener("click", async () => {
       const dimEl = document.getElementById("dimension") as HTMLInputElement;
       const qtyEl = document.getElementById("qty") as HTMLInputElement;
+      const notesEl = document.getElementById("order-notes") as HTMLTextAreaElement;
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
       const dim = dimEl ? parseFloat(dimEl.value || "1") : 1;
+      const notes = notesEl?.value.trim() || undefined;
       const price = calcPrice();
 
       const res = await addToCart({
@@ -705,6 +719,7 @@ if (product.image && !images.includes(product.image))
         dimension: dim,
         options: selectedOptions,
         designUrl: uploadedDesignUrl || undefined,
+        notes,
       } as any);
       if (res && res.ok) {
         alert("Produk ditambahkan ke keranjang!");

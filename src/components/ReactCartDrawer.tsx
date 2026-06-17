@@ -85,6 +85,11 @@ export default function CartDrawer() {
                         Desain Terlampir
                       </a>
                     )}
+                    {item.notes && (
+                      <p className="text-[10px] text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-1 border border-amber-100">
+                        📝 {item.notes}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <p className="font-bold text-blue-600 text-sm">Rp {item.price.toLocaleString('id')}</p>

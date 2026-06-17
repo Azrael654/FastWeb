@@ -357,6 +357,7 @@ model CartItem {
   dimension Decimal  @default(1) @db.Decimal(12, 3)
   options   Json     @default("{}")
   designUrl String?
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

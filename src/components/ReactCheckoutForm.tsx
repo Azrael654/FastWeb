@@ -232,6 +232,9 @@ export default function CheckoutForm({ user, paymentMethods = [] }: { user?: { n
                       Desain Terlampir
                     </p>
                   )}
+                  {item.notes && (
+                    <p className="text-[10px] text-amber-700 bg-amber-50 rounded-md px-2 py-1 mt-1 border border-amber-100">📝 {item.notes}</p>
+                  )}
                   <p className="font-bold text-gray-900 mt-1">Rp {(item.price * item.qty).toLocaleString('id')}</p>
                 </div>
               </div>

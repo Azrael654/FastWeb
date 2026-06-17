@@ -61,6 +61,11 @@ const statusColor: Record<string, string> = {
                     Download File Desain
                   </a>
                 )}
+                {item.notes && (
+                  <p class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-1.5 mt-2 border border-amber-100">
+                    📝 <span class="font-medium">Catatan:</span> {item.notes}
+                  </p>
+                )}
               </div>
               <p class="font-bold text-gray-900 text-sm">Rp {Number(item.price).toLocaleString('id')}</p>
             </div>

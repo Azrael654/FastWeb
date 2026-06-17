@@ -11,6 +11,7 @@ export interface CartItem {
   dimension: number;
   options: Record<string, { id: string; name: string; priceAdj: number }>;
   designUrl?: string;
+  notes?: string;
 }
 
 // In-memory atom for reactivity — populated by fetching /api/cart
