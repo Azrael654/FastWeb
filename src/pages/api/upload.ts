@@ -2,12 +2,12 @@ import type { APIRoute } from 'astro';
 import { promises as fs } from 'fs';
 import path from 'path';
 import prisma from '../../lib/prisma';
-import { requireAdmin } from '../../lib/auth';
+import { getSessionUser } from '../../lib/auth';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
-    const admin = requireAdmin(cookies);
-    if (!admin) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    const user = getSessionUser(cookies);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
