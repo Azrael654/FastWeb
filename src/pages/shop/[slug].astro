@@ -259,12 +259,15 @@ if (product.image && !images.includes(product.image))
             ) : null
           }
           <div>
-            <label class="label" for="qty">Kuantitas Pesanan</label>
+            <label class="label" for="qty">
+              Kuantitas Pesanan 
+              {product.minOrderQty > 1 && <span class="text-xs font-normal text-blue-600 ml-1">(Min. {product.minOrderQty})</span>}
+            </label>
             <input
               id="qty"
               type="number"
-              min="1"
-              value="1"
+              min={product.minOrderQty || 1}
+              value={product.minOrderQty || 1}
               class="input-field"
             />
           </div>

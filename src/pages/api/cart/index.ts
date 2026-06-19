@@ -28,6 +28,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const body = await request.json();
   const { productId, name, slug, image, price, qty, dimension, options, designUrl, notes } = body;
 
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (product && qty < product.minOrderQty) {
+    return new Response(JSON.stringify({ error: `Minimal pesanan adalah ${product.minOrderQty}` }), { status: 400 });
+  }
+
   // Check if exact same product+options+dimension+price+designUrl+notes already in cart
   const existing = await prisma.cartItem.findFirst({
     where: {

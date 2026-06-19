@@ -51,7 +51,7 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
   }
 
   // Invoice title & status (right side)
-  doc.setFontSize(16);
+  doc.setFontSize(10);
   doc.setTextColor(40, 40, 40);
   doc.text(statusText, 140, 22);
 
@@ -149,11 +149,56 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
   doc.text('Total Akhir:', 140, currentY + 2);
   doc.text(`Rp ${formatPrice(order.total)}`, 196, currentY + 2, { align: 'right' });
 
+  // Payment method
+  if (order.paymentMethod) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Metode Pembayaran: ${order.paymentMethod}`, 14, currentY + 2);
+  }
+
+  // Separator before terms
+  const termsStartY = currentY + 16;
+  doc.setDrawColor(220, 220, 220);
+  doc.line(14, termsStartY, 196, termsStartY);
+
+  // Order Notes (if any)
+  let notesEndY = termsStartY + 8;
+  if (order.notes) {
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Catatan Pesanan:', 14, notesEndY);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    const noteLines = doc.splitTextToSize(order.notes, 180);
+    doc.text(noteLines, 14, notesEndY + 5);
+    notesEndY += 5 + noteLines.length * 5 + 4;
+  }
+
+  // Terms & Conditions
+  doc.setFontSize(9);
+  doc.setTextColor(40, 40, 40);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Syarat & Ketentuan:', 14, notesEndY);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  const terms = [
+    '1. Pembayaran harus dilakukan penuh sebelum pesanan diproses.',
+    '2. Revisi desain hanya dapat dilakukan sebelum proses cetak dimulai.',
+    '3. Barang yang sudah dikirim tidak dapat dikembalikan kecuali ada cacat produksi.',
+    '4. Fast Print tidak bertanggung jawab atas keterlambatan pengiriman oleh jasa ekspedisi.',
+  ];
+  terms.forEach((term, i) => {
+    doc.text(term, 14, notesEndY + 6 + i * 5);
+  });
+
   // Footer
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text('Terima kasih atas pesanan Anda!', 105, 280, { align: 'center' });
+  doc.text('Terima kasih atas pesanan Anda!', 105, 286, { align: 'center' });
 
   doc.save(`Invoice_${order.id.slice(-8).toUpperCase()}.pdf`);
 }

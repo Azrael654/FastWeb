@@ -22,6 +22,10 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
   let updatedPrice = Number(cartItem.price);
 
   if (product) {
+    if (qty < product.minOrderQty) {
+      return new Response(JSON.stringify({ error: `Minimal pesanan adalah ${product.minOrderQty}` }), { status: 400 });
+    }
+
     let startingPrice = product.pricingType === 'fixed' ? Number(product.price) : Number(product.unitPrice || product.price);
     const wholesalePrices = Array.isArray(product.wholesalePrices) 
       ? (product.wholesalePrices as any[]).sort((a,b) => b.minQty - a.minQty) 

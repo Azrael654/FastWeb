@@ -66,6 +66,10 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
             <input name="basePrice" type="number" min="0" step="100" class="input-field" placeholder="20000" />
           </div>
 
+          <div>
+            <label class="label">Min. Order (MoQ) *</label>
+            <input name="minOrderQty" type="number" min="1" step="1" value="1" required class="input-field" placeholder="1" />
+          </div>
         </div>
 
         <div id="pricing-unit-wrap" class="hidden">
@@ -525,6 +529,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
       data.isPublished = fd.get('isPublished') === 'true';
       data.price = parseFloat(data.price) || 0;
       data.basePrice = parseFloat(data.basePrice) || data.price;
+      data.minOrderQty = parseInt(data.minOrderQty) || 1;
       if (!data.slug) data.slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
       // Collect optionsConfig
