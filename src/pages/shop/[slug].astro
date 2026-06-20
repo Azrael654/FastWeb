@@ -713,6 +713,19 @@ if (product.image && !images.includes(product.image))
       const unit = calcPrice();
       const price = product.pricingType === 'fixed' ? unit : unit * dim;
 
+      const optionsToSave = { ...selectedOptions };
+      if (product.pricingType.startsWith('area')) {
+        const widthVal = (document.getElementById("width") as HTMLInputElement)?.value;
+        const heightVal = (document.getElementById("height") as HTMLInputElement)?.value;
+        if (widthVal && heightVal) {
+          optionsToSave["Ukuran Cetak"] = {
+            id: 'ukuran',
+            name: `${widthVal} x ${heightVal}`,
+            priceAdj: 0
+          };
+        }
+      }
+
       const res = await addToCart({
         productId: product.id,
         name: product.name,
@@ -721,7 +734,7 @@ if (product.image && !images.includes(product.image))
         price,
         qty,
         dimension: dim,
-        options: selectedOptions,
+        options: optionsToSave,
         designUrl: uploadedDesignUrl || undefined,
         notes,
       } as any);
