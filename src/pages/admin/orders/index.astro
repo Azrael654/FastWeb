@@ -39,6 +39,10 @@ const statusColor: Record<string, string> = {
 const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 ---
 <AdminLayout title="Pesanan" currentPage="orders">
+  <div class="mb-5 flex justify-end">
+    <a href="/admin/orders/new" class="btn-primary text-sm shadow-sm py-2 px-4">+ Buat Pesanan Manual</a>
+  </div>
+
   <!-- Filters -->
   <div class="card p-4 mb-5">
     <form method="GET" class="flex flex-wrap gap-3 items-end">
