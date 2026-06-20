@@ -710,7 +710,8 @@ if (product.image && !images.includes(product.image))
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
       const dim = dimEl ? parseFloat(dimEl.value || "1") : 1;
       const notes = notesEl?.value.trim() || undefined;
-      const price = calcPrice();
+      const unit = calcPrice();
+      const price = product.pricingType === 'fixed' ? unit : unit * dim;
 
       const res = await addToCart({
         productId: product.id,

@@ -38,7 +38,8 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     if (applicableWs) basePrice = Number(applicableWs.price);
 
     let adj = Object.values(cartItem.options as any).reduce((sum: number, opt: any) => sum + (Number(opt.priceAdj) || 0), 0);
-    updatedPrice = basePrice + adj;
+    let unit = basePrice + adj;
+    updatedPrice = product.pricingType === 'fixed' ? unit : unit * Number(cartItem.dimension);
   }
 
   await prisma.cartItem.update({
