@@ -12,12 +12,19 @@ const dbUser = await prisma.appUser.findUnique({
   where: { id: user.id },
 });
 
-const orders = await prisma.order.findMany({
+const rawOrders = await prisma.order.findMany({
   where: {
     OR: [{ userId: user.id }, { customerEmail: user.email }],
   },
   orderBy: { createdAt: "desc" },
 });
+
+const paymentMethods = await prisma.paymentMethod.findMany();
+const pmMap = Object.fromEntries(paymentMethods.map(pm => [pm.name, pm]));
+const orders = rawOrders.map(o => ({
+  ...o,
+  paymentMethodDetails: pmMap[o.paymentMethod || '']
+}));
 
 const contactInfo = await prisma.storeConfig.upsert({
   where: { id: "singleton" },

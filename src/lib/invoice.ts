@@ -155,6 +155,17 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text(`Metode Pembayaran: ${order.paymentMethod}`, 14, currentY + 2);
+    
+    if (order.paymentMethodDetails) {
+      if (order.paymentMethodDetails.accountNumber) {
+        doc.text(`No. Rekening: ${order.paymentMethodDetails.accountNumber}`, 14, currentY + 6);
+        currentY += 4;
+      }
+      if (order.paymentMethodDetails.description) {
+        doc.text(`Info: ${order.paymentMethodDetails.description}`, 14, currentY + 6);
+        currentY += 4;
+      }
+    }
   }
 
   // Separator before terms

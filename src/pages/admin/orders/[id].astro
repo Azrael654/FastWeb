@@ -10,6 +10,9 @@ const order = await prisma.order.findUnique({ where: { id } });
 if (!order) return Astro.redirect('/admin/orders');
 
 const accounts = await prisma.account.findMany({ orderBy: { name: 'asc' } });
+const paymentMethods = await prisma.paymentMethod.findMany();
+const pmMap = Object.fromEntries(paymentMethods.map(pm => [pm.name, pm]));
+const orderWithPm = { ...order, paymentMethodDetails: pmMap[order.paymentMethod || ''] };
 
 const items = Array.isArray(order.items) ? order.items : [];
 const addr = order.shippingAddress as any;
@@ -32,7 +35,7 @@ const statusColor: Record<string, string> = {
     </button>
   </div>
 
-  <div id="order-data" data-order={JSON.stringify(order)} class="hidden"></div>
+  <div id="order-data" data-order={JSON.stringify(orderWithPm)} class="hidden"></div>
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
     <div class="xl:col-span-2 space-y-5">
