@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   const volumeByDay: Record<string, number> = {};
   const revenueByDay: Record<string, number> = {};
   const statusDistribution: Record<string, number> = {
-    pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0
+    pending: 0, processing: 0, done: 0, shipped: 0, delivered: 0, cancelled: 0
   };
   const productSales: Record<string, { name: string, qty: number, revenue: number }> = {};
   const customerStats: Record<string, { name: string, email: string, spent: number, orders: number }> = {};

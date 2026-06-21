@@ -17,10 +17,10 @@ const orderWithPm = { ...order, paymentMethodDetails: pmMap[order.paymentMethod 
 const items = Array.isArray(order.items) ? order.items : [];
 const addr = order.shippingAddress as any;
 
-const statusOptions = ['pending','processing','shipped','delivered','cancelled'];
+const statusOptions = ['pending','processing','done','shipped','delivered','cancelled'];
 const statusColor: Record<string, string> = {
   pending: 'badge-yellow', processing: 'badge-blue',
-  shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
+  done: 'badge-purple', shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
 };
 ---
 <AdminLayout title={`Pesanan #${id?.slice(-8)}`} currentPage="orders">

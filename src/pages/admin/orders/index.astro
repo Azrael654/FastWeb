@@ -34,9 +34,9 @@ const totalPages = Math.ceil(total / limit);
 
 const statusColor: Record<string, string> = {
   pending: 'badge-yellow', processing: 'badge-blue',
-  shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
+  done: 'badge-purple', shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red',
 };
-const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const statuses = ['', 'pending', 'processing', 'done', 'shipped', 'delivered', 'cancelled'];
 ---
 <AdminLayout title="Pesanan" currentPage="orders">
   <div class="mb-5 flex justify-end">
