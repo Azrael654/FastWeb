@@ -38,6 +38,7 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
               name: opt.name,
               value: opt.value || opt.name,
               priceAdj: parseFloat(opt.priceAdj) || 0,
+              isMult: opt.isMult === true || opt.isMult === 'true',
               isDefault: opt.isDefault === true || opt.isDefault === 'true',
               image: opt.image || null,
             }))

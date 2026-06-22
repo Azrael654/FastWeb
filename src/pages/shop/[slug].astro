@@ -355,6 +355,7 @@ if (product.image && !images.includes(product.image))
                           class="peer sr-only option-card-input"
                           data-option-name={opt.name}
                           data-price-adj={opt.priceAdj}
+                          data-is-mult={opt.isMult ? "true" : "false"}
                           checked={opt.isDefault}
                         />
                         <div class="border-2 border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 peer-checked:border-blue-600 peer-checked:bg-blue-50 transition-all text-center">
@@ -403,6 +404,7 @@ if (product.image && !images.includes(product.image))
                         value={opt.id}
                         data-option-name={opt.name}
                         data-price-adj={opt.priceAdj}
+                        data-is-mult={opt.isMult ? "true" : "false"}
                         selected={opt.isDefault}
                       >
                         {opt.name}
@@ -553,6 +555,7 @@ if (product.image && !images.includes(product.image))
             id: checkedInput.value,
             name: checkedInput.dataset.optionName!,
             priceAdj: parseFloat(checkedInput.dataset.priceAdj || "0"),
+            isMult: checkedInput.dataset.isMult === "true",
           };
         }
       });
@@ -598,11 +601,15 @@ if (product.image && !images.includes(product.image))
         basePrice = applicableWs.price;
       }
 
-      let adj = Object.values(selectedOptions).reduce(
-        (sum, opt) => sum + (opt.priceAdj || 0),
-        0,
-      );
-      let unit = basePrice + adj; // price per m² or per unit
+      let adj = Object.values(selectedOptions)
+        .filter((opt: any) => !opt.isMult)
+        .reduce((sum, opt: any) => sum + (opt.priceAdj || 0), 0);
+        
+      let mult = Object.values(selectedOptions)
+        .filter((opt: any) => opt.isMult)
+        .reduce((m, opt: any) => m * (opt.priceAdj || 1), 1);
+
+      let unit = (basePrice + adj) * mult; // price per m² or per unit
 
       let total: number;
       if (product.pricingType === "fixed") {
@@ -627,6 +634,7 @@ if (product.image && !images.includes(product.image))
             id: selectedOpt.value,
             name: selectedOpt.dataset.optionName!,
             priceAdj: parseFloat(selectedOpt.dataset.priceAdj || "0"),
+            isMult: selectedOpt.dataset.isMult === "true",
           };
           calcPrice();
         }
@@ -645,6 +653,7 @@ if (product.image && !images.includes(product.image))
               id: target.value,
               name: target.dataset.optionName!,
               priceAdj: parseFloat(target.dataset.priceAdj || "0"),
+              isMult: target.dataset.isMult === "true",
             };
             calcPrice();
           }

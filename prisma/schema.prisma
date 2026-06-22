@@ -134,6 +134,7 @@ model ProductOption {
   name      String
   value     String
   priceAdj  Decimal  @default(0) @db.Decimal(12, 2)
+  isMult    Boolean  @default(false)
   isDefault Boolean  @default(false)
   tooltip   String?
   image     String?

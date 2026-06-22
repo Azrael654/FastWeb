@@ -9,7 +9,7 @@ if (!canUpdate) return Astro.redirect('/admin/products');
 const { id } = Astro.params;
 const product = await prisma.product.findUnique({
   where: { id },
-  include: { productOptions: { orderBy: { type: 'asc' } } }
+  include: { productOptions: { orderBy: [{ type: 'asc' }, { id: 'asc' }] } }
 });
 
 if (!product) {
@@ -21,15 +21,22 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
 
 // Group existing options by type for the builder
 const optionsConfig = (product.optionsConfig as any) || {};
+const configKeys = Object.keys(optionsConfig);
+
 const existingOptionGroups = Object.entries(
   product.productOptions.reduce((acc: any, opt) => {
     if (!acc[opt.type]) acc[opt.type] = [];
-    acc[opt.type].push({ name: opt.name, priceAdj: String(Number(opt.priceAdj)), isDefault: opt.isDefault, image: opt.image });
+    acc[opt.type].push({ name: opt.name, priceAdj: String(Number(opt.priceAdj)), isMult: opt.isMult, isDefault: opt.isDefault, image: opt.image });
     return acc;
   }, {})
 ).map(([type, options]) => {
   const cfg = optionsConfig[type.toLowerCase()] || {};
   return { type, selectorType: cfg.selectorType || 'dropdown', tooltip: cfg.tooltip || '', options };
+}).sort((a, b) => {
+  const idxA = configKeys.indexOf(a.type.toLowerCase());
+  const idxB = configKeys.indexOf(b.type.toLowerCase());
+  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+  return 0;
 });
 
 const existingWholesale = Array.isArray(product.wholesalePrices) ? product.wholesalePrices : [];
@@ -363,10 +370,13 @@ const existingWholesale = Array.isArray(product.wholesalePrices) ? product.whole
                     </div>
                     <input type="text" placeholder="Nama pilihan" value="${opt.name}" data-gi="${gi}" data-oi="${oi}" data-field="name"
                       class="opt-field input-field text-sm py-1.5 flex-1" />
-                    <div class="relative">
-                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">+Rp</span>
-                      <input type="number" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
-                        class="opt-field input-field text-sm py-1.5 pl-9 w-28" />
+                    <div class="flex items-center gap-1">
+                      <select data-gi="${gi}" data-oi="${oi}" data-field="isMult" class="opt-field-select input-field text-xs py-1.5 px-1 w-16 bg-gray-50 border-gray-200" title="Tipe Harga">
+                        <option value="false" ${!opt.isMult ? 'selected' : ''}>+Rp</option>
+                        <option value="true" ${opt.isMult ? 'selected' : ''}>x (Kali)</option>
+                      </select>
+                      <input type="number" step="0.1" placeholder="0" value="${opt.priceAdj}" data-gi="${gi}" data-oi="${oi}" data-field="priceAdj"
+                        class="opt-field input-field text-sm py-1.5 w-24" title="Nilai Harga / Pengali" />
                     </div>
                     <button type="button" data-gi="${gi}" data-oi="${oi}" class="remove-opt-btn p-1 text-gray-400 hover:text-red-500 transition-colors">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -434,7 +444,17 @@ const existingWholesale = Array.isArray(product.wholesalePrices) ? product.whole
       el.addEventListener('input', (e) => {
         const gi = parseInt((e.target as HTMLElement).dataset.gi!); const oi = parseInt((e.target as HTMLElement).dataset.oi!);
         const field = (e.target as HTMLElement).dataset.field as any;
-        (optionGroups[gi].options[oi] as any)[field] = field === 'isDefault' ? (e.target as HTMLInputElement).checked : (e.target as HTMLInputElement).value;
+        (optionGroups[gi].options[oi] as any)[field] = field === 'isDefault'
+          ? (e.target as HTMLInputElement).checked
+          : (e.target as HTMLInputElement).value;
+      });
+    });
+    container.querySelectorAll('.opt-field-select').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const gi = parseInt((e.target as HTMLElement).dataset.gi!);
+        const oi = parseInt((e.target as HTMLElement).dataset.oi!);
+        const field = (e.target as HTMLElement).dataset.field as any;
+        (optionGroups[gi].options[oi] as any)[field] = (e.target as HTMLSelectElement).value === 'true';
       });
     });
     container.querySelectorAll('.opt-img-btn').forEach(el => {
@@ -457,14 +477,14 @@ const existingWholesale = Array.isArray(product.wholesalePrices) ? product.whole
       el.addEventListener('click', (e) => { const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!); optionGroups.splice(gi, 1); renderGroups(); });
     });
     container.querySelectorAll('.add-opt-btn').forEach(el => {
-      el.addEventListener('click', (e) => { const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!); optionGroups[gi].options.push({ name: '', priceAdj: '0', isDefault: false }); renderGroups(); });
+      el.addEventListener('click', (e) => { const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!); optionGroups[gi].options.push({ name: '', priceAdj: '0', isMult: false, isDefault: false }); renderGroups(); });
     });
     container.querySelectorAll('.remove-opt-btn').forEach(el => {
       el.addEventListener('click', (e) => { const gi = parseInt((e.currentTarget as HTMLElement).dataset.gi!); const oi = parseInt((e.currentTarget as HTMLElement).dataset.oi!); optionGroups[gi].options.splice(oi, 1); renderGroups(); });
     });
   }
   document.getElementById('add-option-group')?.addEventListener('click', () => {
-    optionGroups.push({ type: '', options: [{ name: '', priceAdj: '0', isDefault: true }] }); renderGroups();
+    optionGroups.push({ type: '', options: [{ name: '', priceAdj: '0', isMult: false, isDefault: true }] }); renderGroups();
   });
   renderGroups();
   // --- End Options Builder ---
@@ -564,7 +584,7 @@ const existingWholesale = Array.isArray(product.wholesalePrices) ? product.whole
         .filter(g => g.type.trim())
         .flatMap(g => g.options
           .filter(o => o.name.trim())
-          .map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isDefault: o.isDefault, image: o.image }))
+          .map(o => ({ type: g.type.trim().toLowerCase(), name: o.name.trim(), priceAdj: parseFloat(o.priceAdj) || 0, isMult: o.isMult || false, isDefault: o.isDefault, image: o.image }))
         );
       data.options = options;
 

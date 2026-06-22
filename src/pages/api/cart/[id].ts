@@ -37,8 +37,15 @@ export const PUT: APIRoute = async ({ request, params, cookies }) => {
     const applicableWs = wholesalePrices.find(ws => totalUnits >= ws.minQty);
     if (applicableWs) basePrice = Number(applicableWs.price);
 
-    let adj = Object.values(cartItem.options as any).reduce((sum: number, opt: any) => sum + (Number(opt.priceAdj) || 0), 0);
-    let unit = basePrice + adj;
+    let adj = Object.values(cartItem.options as any)
+      .filter((opt: any) => !opt.isMult)
+      .reduce((sum: number, opt: any) => sum + (Number(opt.priceAdj) || 0), 0);
+    
+    let mult = Object.values(cartItem.options as any)
+      .filter((opt: any) => opt.isMult)
+      .reduce((m: number, opt: any) => m * (Number(opt.priceAdj) || 1), 1);
+
+    let unit = (basePrice + adj) * mult;
     updatedPrice = product.pricingType === 'fixed' ? unit : unit * Number(cartItem.dimension);
   }
 
