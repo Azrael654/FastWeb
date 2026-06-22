@@ -13,7 +13,11 @@ const product = await prisma.product.findUnique({
 if (!product || !product.isPublished) return Astro.redirect("/shop");
 
 const relatedProducts = await prisma.product.findMany({
-  where: { categoryId: product.categoryId, slug: { not: slug }, isPublished: true },
+  where: {
+    categoryId: product.categoryId,
+    slug: { not: slug },
+    isPublished: true,
+  },
   take: 4,
 });
 
@@ -26,8 +30,8 @@ const optionsByType = product.productOptions.reduce((acc: any, opt) => {
 const optionsConfig = (product.optionsConfig as any) || {};
 
 // Sort wholesale prices by minQty descending for easier processing
-const wholesalePrices = Array.isArray(product.wholesalePrices) 
-  ? (product.wholesalePrices as any[]).sort((a, b) => b.minQty - a.minQty) 
+const wholesalePrices = Array.isArray(product.wholesalePrices)
+  ? (product.wholesalePrices as any[]).sort((a, b) => b.minQty - a.minQty)
   : [];
 
 // Determine default selections
@@ -182,22 +186,46 @@ if (product.image && !images.includes(product.image))
           )
         }
 
-        {wholesalePrices.length > 0 && (
-          <div class="mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-              Harga Grosir
-            </h4>
-            <div class="space-y-1.5">
-              {wholesalePrices.map((ws: any) => (
-                <div class="flex justify-between text-sm text-blue-800">
-                  <span>Pembelian &ge; {ws.minQty} {product.pricingType !== 'fixed' ? product.pricingUnit || 'unit' : 'pcs'}</span>
-                  <span class="font-medium">Rp {Number(ws.price).toLocaleString('id')} / {product.pricingType !== 'fixed' ? product.pricingUnit || 'unit' : 'pcs'}</span>
-                </div>
-              ))}
+        {
+          wholesalePrices.length > 0 && (
+            <div class="mb-6 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+              <h4 class="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
+                <svg
+                  class="w-4 h-4 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                  />
+                </svg>
+                Harga Grosir
+              </h4>
+              <div class="space-y-1.5">
+                {wholesalePrices.map((ws: any) => (
+                  <div class="flex justify-between text-sm text-blue-800">
+                    <span>
+                      Pembelian &ge; {ws.minQty}{" "}
+                      {product.pricingType !== "fixed"
+                        ? product.pricingUnit || "unit"
+                        : "pcs"}
+                    </span>
+                    <span class="font-medium">
+                      Rp {Number(ws.price).toLocaleString("id")} /{" "}
+                      {product.pricingType !== "fixed"
+                        ? product.pricingUnit || "unit"
+                        : "pcs"}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         <!-- Quantity & Area (if applicable) -->
         <div class="grid grid-cols-2 gap-4 mb-6">
@@ -260,8 +288,14 @@ if (product.image && !images.includes(product.image))
           }
           <div>
             <label class="label" for="qty">
-              Kuantitas Pesanan 
-              {product.minOrderQty > 1 && <span class="text-xs font-normal text-blue-600 ml-1">(Min. {product.minOrderQty})</span>}
+              Kuantitas Pesanan
+              {
+                product.minOrderQty > 1 && (
+                  <span class="text-xs font-normal text-blue-600 ml-1">
+                    (Min. {product.minOrderQty})
+                  </span>
+                )
+              }
             </label>
             <input
               id="qty"
@@ -399,14 +433,17 @@ if (product.image && !images.includes(product.image))
 
         <!-- Notes -->
         <div class="mb-6">
-          <label class="label font-bold text-gray-900" for="order-notes">Catatan (Opsional)</label>
-          <p class="text-xs text-gray-500 mb-2">Tambahkan instruksi khusus untuk pesanan ini</p>
+          <label class="label font-bold text-gray-900" for="order-notes"
+            >Catatan (Opsional)</label
+          >
+          <p class="text-xs text-gray-500 mb-2">
+            Tambahkan instruksi khusus untuk pesanan ini
+          </p>
           <textarea
             id="order-notes"
             rows="3"
-            placeholder="Contoh: Tolong cetak lebih tajam pada area logo, warna dominan biru..."
-            class="input-field text-sm resize-none"
-          ></textarea>
+            placeholder="Contoh: Design dikirim via WA ke nomor ..."
+            class="input-field text-sm resize-none"></textarea>
         </div>
 
         <div class="flex gap-3">
@@ -548,13 +585,15 @@ if (product.image && !images.includes(product.image))
       }
 
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
-      
+
       // Calculate total "units" to determine if wholesale applies
       const totalUnits = product.pricingType === "fixed" ? qty : dim * qty;
-      
+
       // Apply wholesale price if applicable
       let basePrice = startingSellingPrice;
-      const applicableWs = wholesalePrices.find((ws: any) => totalUnits >= ws.minQty);
+      const applicableWs = wholesalePrices.find(
+        (ws: any) => totalUnits >= ws.minQty,
+      );
       if (applicableWs) {
         basePrice = applicableWs.price;
       }
@@ -706,22 +745,27 @@ if (product.image && !images.includes(product.image))
     addToCartBtn?.addEventListener("click", async () => {
       const dimEl = document.getElementById("dimension") as HTMLInputElement;
       const qtyEl = document.getElementById("qty") as HTMLInputElement;
-      const notesEl = document.getElementById("order-notes") as HTMLTextAreaElement;
+      const notesEl = document.getElementById(
+        "order-notes",
+      ) as HTMLTextAreaElement;
       const qty = qtyEl ? parseInt(qtyEl.value || "1") : 1;
       const dim = dimEl ? parseFloat(dimEl.value || "1") : 1;
       const notes = notesEl?.value.trim() || undefined;
       const unit = calcPrice();
-      const price = product.pricingType === 'fixed' ? unit : unit * dim;
+      const price = product.pricingType === "fixed" ? unit : unit * dim;
 
       const optionsToSave = { ...selectedOptions };
-      if (product.pricingType.startsWith('area')) {
-        const widthVal = (document.getElementById("width") as HTMLInputElement)?.value;
-        const heightVal = (document.getElementById("height") as HTMLInputElement)?.value;
+      if (product.pricingType.startsWith("area")) {
+        const widthVal = (document.getElementById("width") as HTMLInputElement)
+          ?.value;
+        const heightVal = (
+          document.getElementById("height") as HTMLInputElement
+        )?.value;
         if (widthVal && heightVal) {
           optionsToSave["Ukuran Cetak"] = {
-            id: 'ukuran',
+            id: "ukuran",
             name: `${widthVal} x ${heightVal}`,
-            priceAdj: 0
+            priceAdj: 0,
           };
         }
       }
