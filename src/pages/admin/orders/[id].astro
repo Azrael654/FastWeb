@@ -172,7 +172,7 @@ const statusColor: Record<string, string> = {
 </AdminLayout>
 
 <script>
-  import { generateInvoice, loadInvoiceLogo } from '../../../lib/invoice';
+  import { generateInvoice, loadInvoiceLogo, loadStoreConfig } from '../../../lib/invoice';
 
   const orderId = window.location.pathname.split('/').filter(Boolean).pop();
 
@@ -187,7 +187,8 @@ const statusColor: Record<string, string> = {
     try {
       const orderData = JSON.parse(orderDataElement.dataset.order || '{}');
       const logo = await loadInvoiceLogo();
-      generateInvoice(orderData, logo);
+      const storeConfig = await loadStoreConfig();
+      generateInvoice(orderData, logo, storeConfig);
     } catch (err) {
       console.error(err);
       alert('Gagal membuat invoice');

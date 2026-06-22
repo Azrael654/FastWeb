@@ -23,13 +23,21 @@ export function loadInvoiceLogo(): Promise<string | null> {
   });
 }
 
-export function generateInvoice(order: any, logoDataUrl?: string | null) {
+export async function loadStoreConfig(): Promise<any> {
+  try {
+    const res = await fetch('/api/config/store');
+    if (res.ok) return await res.json();
+  } catch { }
+  return null;
+}
+
+export function generateInvoice(order: any, logoDataUrl?: string | null, storeConfig?: any) {
   const doc = new jsPDF();
 
   const formatPrice = (price: any) => Number(price).toLocaleString('id-ID');
 
   let statusText = 'INVOICE';
-  if (order.status === 'delivered' || order.status === 'shipped' || order.status === 'processing') {
+  if (order.status === 'delivered' || order.status === 'shipped' || order.status === 'processing' || order.status === 'done') {
     statusText = 'INVOICE - LUNAS';
   } else if (order.status === 'cancelled') {
     statusText = 'INVOICE - DIBATALKAN';
@@ -44,10 +52,30 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
   } else {
     doc.setFontSize(20);
     doc.setTextColor(37, 99, 235);
-    doc.text('FAST PRINT', 14, 22);
+    doc.text(storeConfig?.storeName || 'FAST PRINT', 14, 22);
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text('Printing Solution', 14, 28);
+    doc.text(storeConfig?.tagline || 'Printing Solution', 14, 28);
+  }
+
+  let headerYOffset = logoDataUrl ? 30 : 34;
+
+  if (storeConfig) {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    if (storeConfig.address) {
+      const splitAddress = doc.splitTextToSize(storeConfig.address, 90);
+      doc.text(splitAddress, 14, headerYOffset);
+      headerYOffset += splitAddress.length * 4;
+    }
+    const contacts = [];
+    if (storeConfig.phone) contacts.push(`Telp: ${storeConfig.phone}`);
+    if (storeConfig.whatsapp) contacts.push(`WA: ${storeConfig.whatsapp}`);
+    if (storeConfig.email) contacts.push(`Email: ${storeConfig.email}`);
+    if (contacts.length > 0) {
+      doc.text(contacts.join(' | '), 14, headerYOffset);
+      headerYOffset += 4;
+    }
   }
 
   // Invoice title & status (right side)
@@ -60,33 +88,42 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
   doc.text(`Order ID: #${order.id.slice(-8).toUpperCase()}`, 140, 28);
   doc.text(`Tanggal: ${new Date(order.createdAt).toLocaleDateString('id-ID')}`, 140, 34);
 
+  let yPos = Math.max(headerYOffset + 2, 40);
+
   // Separator
   doc.setDrawColor(200, 200, 200);
-  doc.line(14, 40, 196, 40);
+  doc.line(14, yPos, 196, yPos);
+
+  yPos += 10;
 
   // Customer info
   doc.setFontSize(10);
   doc.setTextColor(40, 40, 40);
   doc.setFont('helvetica', 'bold');
-  doc.text('Ditagihkan Kepada:', 14, 50);
+  doc.text('Ditagihkan Kepada:', 14, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text(order.customerName, 14, 56);
-  doc.text(order.customerEmail, 14, 62);
-  if (order.customerPhone) doc.text(order.customerPhone, 14, 68);
+  doc.text(order.customerName, 14, yPos + 6);
+  doc.text(order.customerEmail, 14, yPos + 12);
+  if (order.customerPhone) doc.text(order.customerPhone, 14, yPos + 18);
+
+  let maxCustomerY = yPos + (order.customerPhone ? 18 : 12);
 
   // Shipping address
   if (order.shippingAddress) {
     const addr = order.shippingAddress;
     doc.setFont('helvetica', 'bold');
-    doc.text('Dikirim Ke:', 100, 50);
+    doc.text('Dikirim Ke:', 100, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(addr.name || order.customerName, 100, 56);
+    doc.text(addr.name || order.customerName, 100, yPos + 6);
     const splitAddress = doc.splitTextToSize(addr.address || '', 90);
-    doc.text(splitAddress, 100, 62);
-    const yOffset = 62 + splitAddress.length * 5;
+    doc.text(splitAddress, 100, yPos + 12);
+    const yOffset = yPos + 12 + splitAddress.length * 5;
     doc.text(`${addr.city || ''}, ${addr.province || ''} ${addr.postalCode || ''}`, 100, yOffset);
     if (addr.phone) doc.text(addr.phone, 100, yOffset + 5);
+    maxCustomerY = Math.max(maxCustomerY, yOffset + (addr.phone ? 5 : 0));
   }
+
+  const tableStartY = Math.max(maxCustomerY + 10, 90);
 
   // Items table
   const items = Array.isArray(order.items) ? order.items : [];
@@ -108,7 +145,7 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
   });
 
   autoTable(doc, {
-    startY: 90,
+    startY: tableStartY,
     head: [['Item / Deskripsi', 'Qty', 'Harga Satuan', 'Total']],
     body: tableData,
     theme: 'grid',
@@ -155,7 +192,7 @@ export function generateInvoice(order: any, logoDataUrl?: string | null) {
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text(`Metode Pembayaran: ${order.paymentMethod}`, 14, currentY + 2);
-    
+
     if (order.paymentMethodDetails) {
       if (order.paymentMethodDetails.accountNumber) {
         doc.text(`No. Rekening: ${order.paymentMethodDetails.accountNumber}`, 14, currentY + 6);

@@ -368,7 +368,7 @@ const formatPrice = (price: any) => {
 </MainLayout>
 
 <script>
-  import { generateInvoice, loadInvoiceLogo } from "../../lib/invoice";
+  import { generateInvoice, loadInvoiceLogo, loadStoreConfig } from "../../lib/invoice";
 
   // Edit Profile Logic
   const profileModal = document.getElementById("profile-modal");
@@ -455,7 +455,8 @@ const formatPrice = (price: any) => {
       try {
         const orderData = JSON.parse(el.dataset.order || "{}");
         const logo = await loadInvoiceLogo();
-        generateInvoice(orderData, logo);
+        const storeConfig = await loadStoreConfig();
+        generateInvoice(orderData, logo, storeConfig);
       } catch (err) {
         console.error(err);
         alert("Gagal mendownload invoice");
