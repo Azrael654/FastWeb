@@ -70,7 +70,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
       const items = Array.isArray(order.items) ? order.items : [];
       items.forEach((item: any) => {
-        const id = item.id || item.name;
+        const id = item.productId || item.name;
         if (!productSales[id]) {
           productSales[id] = { name: item.name, qty: 0, revenue: 0 };
         }
