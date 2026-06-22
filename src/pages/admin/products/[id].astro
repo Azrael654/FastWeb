@@ -312,7 +312,7 @@ const existingWholesale = Array.isArray(product.wholesalePrices) ? product.whole
   // --- End Image Gallery Logic ---
 
   // --- Options Builder (pre-populated from existing data) ---
-  let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isDefault: boolean; image?: string }[] }[] =
+  let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isMult?: boolean; isDefault: boolean; image?: string }[] }[] =
     JSON.parse(document.getElementById('options-initial-data')?.dataset.groups || '[]');
   let optionSortables: any[] = [];
   let containerSortable: any = null;

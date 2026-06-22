@@ -270,7 +270,7 @@ const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   // --- End Image Gallery Logic ---
 
   // --- Options Builder ---
-  let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isDefault: boolean; image?: string }[] }[] = [];
+  let optionGroups: { type: string; selectorType?: string; tooltip?: string; options: { name: string; priceAdj: string; isMult?: boolean; isDefault: boolean; image?: string }[] }[] = [];
   let optionSortables: any[] = [];
   let containerSortable: any = null;
 
