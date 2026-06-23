@@ -43,8 +43,8 @@ const statusColor: Record<string, string> = {
       <div class="card p-5">
         <h2 class="font-bold text-gray-900 mb-4">Item Pesanan</h2>
         <div class="space-y-3">
-          {items.map((item: any) => (
-            <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+          {items.map((item: any, index: number) => (
+            <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-xl relative group">
               {item.image && <img src={item.image} alt={item.name} class="w-14 h-14 rounded-lg object-cover" />}
               <div class="flex-1">
                 <p class="font-semibold text-gray-900 text-sm">{item.name}</p>
@@ -70,10 +70,42 @@ const statusColor: Record<string, string> = {
                   </p>
                 )}
               </div>
-              <p class="font-bold text-gray-900 text-sm">Rp {Number(item.price).toLocaleString('id')}</p>
+              <div class="flex items-center gap-3">
+                <p class="font-bold text-gray-900 text-sm">Rp {Number(item.price).toLocaleString('id')}</p>
+                {canUpdate && (
+                  <button type="button" data-index={index} class="delete-item-btn text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded-md" title="Hapus Item">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
+
+        {canUpdate && (
+          <div class="mt-4">
+            <button type="button" id="toggle-add-service-btn" class="text-sm text-blue-600 hover:underline font-medium flex items-center gap-1">
+              + Tambah Layanan Tambahan
+            </button>
+            <form id="add-service-form" class="hidden mt-3 p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                  <label class="label text-xs">Nama Layanan / Ekstra</label>
+                  <input type="text" name="name" required placeholder="Misal: Jasa Desain, Packing Kayu..." class="input-field py-1.5 text-sm bg-white" />
+                </div>
+                <div>
+                  <label class="label text-xs">Harga (Rp)</label>
+                  <input type="number" name="price" required placeholder="0" class="input-field py-1.5 text-sm bg-white" />
+                </div>
+              </div>
+              <div class="flex justify-end gap-2">
+                <button type="button" id="cancel-add-service-btn" class="btn-ghost text-xs py-1.5">Batal</button>
+                <button type="submit" class="btn-primary text-xs py-1.5">Simpan Layanan</button>
+              </div>
+            </form>
+          </div>
+        )}
+
         <div class="border-t border-gray-100 mt-4 pt-4 space-y-2 text-sm">
           <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>Rp {Number(order.subtotal).toLocaleString('id')}</span></div>
           {Number(order.discount) > 0 && <div class="flex justify-between text-green-600"><span>Diskon {order.couponCode && `(${order.couponCode})`}</span><span>-Rp {Number(order.discount).toLocaleString('id')}</span></div>}
@@ -280,5 +312,118 @@ const statusColor: Record<string, string> = {
       btn.disabled = false;
       btn.textContent = 'Simpan';
     }
+  });
+
+  // Add Additional Service Logic
+  const addServiceForm = document.getElementById('add-service-form') as HTMLFormElement;
+  const toggleAddServiceBtn = document.getElementById('toggle-add-service-btn');
+  const cancelAddServiceBtn = document.getElementById('cancel-add-service-btn');
+
+  toggleAddServiceBtn?.addEventListener('click', () => {
+    addServiceForm?.classList.remove('hidden');
+    toggleAddServiceBtn.classList.add('hidden');
+  });
+
+  cancelAddServiceBtn?.addEventListener('click', () => {
+    addServiceForm?.classList.add('hidden');
+    toggleAddServiceBtn?.classList.remove('hidden');
+    addServiceForm.reset();
+  });
+
+  addServiceForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = addServiceForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+
+    const fd = new FormData(addServiceForm);
+    const serviceName = fd.get('name') as string;
+    const servicePrice = Number(fd.get('price'));
+
+    try {
+      const orderDataElement = document.getElementById('order-data');
+      if (!orderDataElement) throw new Error('Order data not found');
+      
+      const orderData = JSON.parse(orderDataElement.dataset.order || '{}');
+      const items = Array.isArray(orderData.items) ? [...orderData.items] : [];
+      
+      items.push({
+        name: serviceName,
+        price: servicePrice,
+        qty: 1,
+      });
+
+      const newSubtotal = Number(orderData.subtotal) + servicePrice;
+      const newTotal = newSubtotal + Number(orderData.shippingFee) - Number(orderData.discount);
+
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          items, 
+          subtotal: newSubtotal, 
+          total: newTotal 
+        }),
+      });
+
+      if (res.ok) {
+        location.reload();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal menyimpan layanan tambahan');
+      }
+    } catch (error: any) {
+      alert(error.message || 'Error jaringan');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Simpan Layanan';
+    }
+  });
+
+  // Delete Item Logic
+  document.querySelectorAll('.delete-item-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      if (!confirm('Yakin ingin menghapus item ini dari pesanan?')) return;
+      
+      const el = e.currentTarget as HTMLButtonElement;
+      const index = Number(el.dataset.index);
+      
+      try {
+        el.disabled = true;
+        const orderDataElement = document.getElementById('order-data');
+        if (!orderDataElement) throw new Error('Order data not found');
+        
+        const orderData = JSON.parse(orderDataElement.dataset.order || '{}');
+        const items = Array.isArray(orderData.items) ? [...orderData.items] : [];
+        
+        if (index >= 0 && index < items.length) {
+          const removedItem = items.splice(index, 1)[0];
+          const removedPrice = Number(removedItem.price) * Number(removedItem.qty || 1);
+          const newSubtotal = Math.max(0, Number(orderData.subtotal) - removedPrice);
+          const newTotal = Math.max(0, newSubtotal + Number(orderData.shippingFee) - Number(orderData.discount));
+          
+          const res = await fetch(`/api/orders/${orderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              items, 
+              subtotal: newSubtotal, 
+              total: newTotal 
+            }),
+          });
+
+          if (res.ok) {
+            location.reload();
+          } else {
+            const err = await res.json();
+            alert(err.error || 'Gagal menghapus item');
+          }
+        }
+      } catch (error: any) {
+        alert(error.message || 'Error jaringan');
+      } finally {
+        el.disabled = false;
+      }
+    });
   });
 </script>
