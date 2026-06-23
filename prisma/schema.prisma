@@ -300,6 +300,7 @@ model Coupon {
   usageLimit     Int?
   usageCount     Int          @default(0)
   enabled        Boolean      @default(true)
+  applicableProducts Json?    @default("[]")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

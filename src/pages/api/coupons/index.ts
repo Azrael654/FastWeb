@@ -33,6 +33,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         usageLimit: data.usageLimit ? parseInt(data.usageLimit) : null,
         enabled: data.enabled !== undefined ? data.enabled : true,
+        applicableProducts: data.applicableProducts || [],
       }
     });
 

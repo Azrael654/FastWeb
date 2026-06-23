@@ -3,6 +3,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import prisma from '../../../lib/prisma';
 
 const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
+const products = await prisma.product.findMany({
+  where: { isPublished: true },
+  select: { id: true, name: true },
+  orderBy: { name: 'asc' }
+});
 ---
 <AdminLayout title="Manajemen Kupon" currentPage="coupons">
   <div class="flex items-center justify-between mb-5">
@@ -21,6 +26,7 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Kode Kupon</th>
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Tipe & Nilai</th>
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Min. Order</th>
+            <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Berlaku Untuk</th>
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Masa Berlaku</th>
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Pemakaian</th>
             <th class="p-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -41,6 +47,9 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
               </td>
               <td class="p-4 text-sm text-gray-600">
                 {Number(c.minOrderValue) > 0 ? `Rp ${Number(c.minOrderValue).toLocaleString('id')}` : '-'}
+              </td>
+              <td class="p-4 text-sm text-gray-600">
+                {Array.isArray(c.applicableProducts) && c.applicableProducts.length > 0 ? `${c.applicableProducts.length} Produk` : 'Semua Produk'}
               </td>
               <td class="p-4 text-sm">
                 {c.expiryDate ? (
@@ -67,6 +76,7 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
                   data-expiry={c.expiryDate ? new Date(c.expiryDate).toISOString().split('T')[0] : ''}
                   data-limit={c.usageLimit || ''}
                   data-enabled={c.enabled.toString()}
+                  data-products={JSON.stringify(c.applicableProducts || [])}
                   class="edit-btn text-blue-500 hover:text-blue-700 mr-2 p-1"
                   title="Edit"
                 >
@@ -132,7 +142,21 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
           </div>
         </div>
 
-        <div class="flex items-center gap-2 mt-2">
+        <div>
+          <label class="label mb-2 block">Berlaku Untuk Produk (Opsional)</label>
+          <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+            {products.map(p => (
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="applicableProducts" value={p.id} class="product-checkbox w-4 h-4 text-blue-600 rounded border-gray-300" />
+                <span class="text-sm text-gray-700">{p.name}</span>
+              </label>
+            ))}
+            {products.length === 0 && <p class="text-xs text-gray-500">Tidak ada produk tersedia.</p>}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Biarkan kosong agar kupon berlaku untuk semua produk.</p>
+        </div>
+
+        <div class="flex items-center gap-2 mt-4">
           <input type="checkbox" name="enabled" id="f-enabled" class="w-4 h-4 text-blue-600 rounded border-gray-300" checked />
           <label for="f-enabled" class="text-sm font-medium text-gray-700">Kupon Aktif</label>
         </div>
@@ -155,6 +179,7 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
     form.reset();
     (document.getElementById('f-id') as HTMLInputElement).value = '';
     (document.getElementById('f-enabled') as HTMLInputElement).checked = true;
+    document.querySelectorAll('.product-checkbox').forEach(cb => (cb as HTMLInputElement).checked = false);
     document.getElementById('modal-title')!.textContent = 'Tambah Kupon';
     modal.classList.remove('hidden');
   });
@@ -171,6 +196,11 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
       (document.getElementById('f-expiry') as HTMLInputElement).value = el.dataset.expiry || '';
       (document.getElementById('f-enabled') as HTMLInputElement).checked = el.dataset.enabled === 'true';
       
+      const products = JSON.parse(el.dataset.products || '[]');
+      document.querySelectorAll('.product-checkbox').forEach(cb => {
+        (cb as HTMLInputElement).checked = products.includes((cb as HTMLInputElement).value);
+      });
+
       document.getElementById('modal-title')!.textContent = 'Edit Kupon';
       modal.classList.remove('hidden');
     });
@@ -190,6 +220,9 @@ const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } })
       
       // Parse enabled from checkbox
       data.enabled = !!form.querySelector('#f-enabled:checked');
+
+      const selectedProducts = Array.from(document.querySelectorAll('.product-checkbox:checked')).map(cb => (cb as HTMLInputElement).value);
+      data.applicableProducts = selectedProducts;
 
       const method = id ? 'PUT' : 'POST';
       const url = id ? `/api/coupons/${id}` : '/api/coupons';

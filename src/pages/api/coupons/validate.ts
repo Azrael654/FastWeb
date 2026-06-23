@@ -28,27 +28,45 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       return new Response(JSON.stringify({ error: 'Batas pemakaian kupon sudah habis' }), { status: 400 });
     }
 
+    // Evaluate applicableProducts
+    let eligibleSubtotal = subtotal;
+    const applicableProducts = Array.isArray(coupon.applicableProducts) ? coupon.applicableProducts : [];
+
+    if (applicableProducts.length > 0) {
+      const cartItems = await prisma.cartItem.findMany({
+        where: { userId: user.id }
+      });
+      const eligibleItems = cartItems.filter(item => applicableProducts.includes(item.productId));
+
+      if (eligibleItems.length === 0) {
+        return new Response(JSON.stringify({ error: 'Kupon ini tidak berlaku untuk produk di keranjang Anda' }), { status: 400 });
+      }
+
+      eligibleSubtotal = eligibleItems.reduce((sum, item) => sum + (Number(item.price) * item.qty), 0);
+    }
+
     const minOrder = Number(coupon.minOrderValue);
-    if (minOrder > 0 && subtotal < minOrder) {
-      return new Response(JSON.stringify({ error: `Minimal transaksi Rp ${minOrder.toLocaleString('id')} untuk menggunakan kupon ini` }), { status: 400 });
+    if (minOrder > 0 && eligibleSubtotal < minOrder) {
+      const msg = applicableProducts.length > 0
+        ? `Minimal transaksi produk promo Rp ${minOrder.toLocaleString('id')}`
+        : `Minimal transaksi Rp ${minOrder.toLocaleString('id')} untuk menggunakan kupon ini`;
+      return new Response(JSON.stringify({ error: msg }), { status: 400 });
     }
 
     const value = Number(coupon.discountValue);
     let discountAmount = 0;
     if (coupon.discountType === 'percentage') {
-      discountAmount = (subtotal * value) / 100;
-      // Optional: cap maximum discount if needed, but not specified in schema
+      discountAmount = (eligibleSubtotal * value) / 100;
     } else {
       discountAmount = value;
     }
 
-    // Don't discount more than subtotal
-    if (discountAmount > subtotal) {
-      discountAmount = subtotal;
+    if (discountAmount > eligibleSubtotal) {
+      discountAmount = eligibleSubtotal;
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       discount: discountAmount,
       code: coupon.code
     }), { status: 200 });
