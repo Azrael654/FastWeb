@@ -72,7 +72,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       items.forEach((item: any) => {
         const id = item.productId || item.name;
         if (!productSales[id]) {
-          productSales[id] = { name: item.name, qty: 0, revenue: 0 };
+          const productName = item.productId === 'custom' ? 'Order Custom' : item.name;
+          productSales[id] = { name: productName, qty: 0, revenue: 0 };
         }
         productSales[id].qty += item.qty;
         productSales[id].revenue += (Number(item.price) * item.qty);
