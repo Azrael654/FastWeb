@@ -25,7 +25,6 @@ const [accounts, transactions, categories] = await Promise.all([
     where: txWhere,
     include: { account: true },
     orderBy: { date: "desc" },
-    take: 100,
   }),
   prisma.transactionCategory.findMany({ orderBy: { name: "asc" } }),
 ]);
@@ -290,7 +289,7 @@ const netProfitLabel = hasActiveFilter
       </div>
       <div class="divide-y divide-gray-50">
         {
-          transactions.slice(0, 10).map((tx) => (
+          transactions.map((tx) => (
             <button
               type="button"
               class="tx-row w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 text-left transition-colors cursor-pointer"
